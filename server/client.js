@@ -126,7 +126,7 @@ Client.prototype.receive = function(data) {
 			else if (packet.id == "upgrade") this.upgrade(packet.port);
 			
 			else if (this.host == true) {
-			
+				
 				if (packet.id == "onBridge") this.onBridge(packet.name, packet.account, packet.key);
 				else if (packet.id == "onLobby") this.onLobby(packet.account, packet.lobby, packet.key);
 				else if (packet.id == "rejectLobby") this.rejectLobby(packet);
@@ -989,11 +989,13 @@ Client.prototype.log = function() {
 Client.prototype.send = function(data, useUtil) {
 	
 	//Only try to send if client socket is receiving
-	if (this.socket.readyState != 1) return;
+	if (!(this.socket.readyState == 1 || this.socket.readyState == "open")) return;
 	
 	try {
 		if (useUtil) var s = util.inspect(data);
 		else var s = JSON.stringify(data);
+		
+		if (s.length > 5000) return;
 		
 		this.log(cc.green, data);
 		
