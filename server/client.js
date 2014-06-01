@@ -85,8 +85,8 @@ Client.prototype.receive = function(data) {
 		if (!this.account) {
 			
 			//Account
-			if (packet.id == "login") this.login(packet.account, packet.password);
-			else if (packet.id == "register") this.register(packet.account, packet.password);
+			if (packet.id == "login") this.login(packet);
+			else if (packet.id == "register") this.register(packet);
 			
 			//Misc
 			//else if (packet.id == "js") this.js(packet.data);
@@ -102,7 +102,7 @@ Client.prototype.receive = function(data) {
 			//Communication
 			else if (packet.id == "broadcast") this.broadcast(packet);
 			else if (packet.id == "echo") this.echo(packet);
-			else if (packet.id == "whisper") this.whisper(packet.account, packet.message);
+			else if (packet.id == "whisper") this.whisper(packet);
 			
 			//Groups
 			//else if (packet.id == "claim") this.claim();
@@ -111,30 +111,30 @@ Client.prototype.receive = function(data) {
 			
 			//Friends
 			else if (packet.id == "friendList") this.friendList(packet);
-			else if (packet.id == "friendAdd") this.friendAdd(packet.account);
-			else if (packet.id == "friendRemove") this.friendRemove(packet.account);
+			else if (packet.id == "friendAdd") this.friendAdd(packet);
+			else if (packet.id == "friendRemove") this.friendRemove(packet);
 			
 			//Misc
 			//else if (packet.id == "js") this.js(packet.data);
 			
 			//Hosts
-			else if (packet.id == "reserve") this.reserve(packet.host, packet.name);
-			else if (packet.id == "bridge") this.bridge(packet.host);
-			else if (packet.id == "lobby") this.lobby(packet.lobby);
+			else if (packet.id == "reserve") this.reserve(packet);
+			else if (packet.id == "bridge") this.bridge(packet);
+			else if (packet.id == "lobby") this.lobby(packet);
 			else if (packet.id == "lobbyList") this.lobbyList();
 			else if (packet.id == "hostList") this.hostList();
-			else if (packet.id == "upgrade") this.upgrade(packet.port);
+			else if (packet.id == "upgrade") this.upgrade(packet);
 			
 			else if (this.host == true) {
 				
-				if (packet.id == "onBridge") this.onBridge(packet.name, packet.account, packet.key);
-				else if (packet.id == "onLobby") this.onLobby(packet.account, packet.lobby, packet.key);
+				if (packet.id == "onBridge") this.onBridge(packet);
+				else if (packet.id == "onLobby") this.onLobby(packet);
 				else if (packet.id == "rejectLobby") this.rejectLobby(packet);
-				else if (packet.id == "bridgeReject") this.bridgeReject(packet.reason, packet.account);
-				else if (packet.id == "onReserve") this.onReserve(packet.name, packet.account);
-				else if (packet.id == "unlist") this.unlist(packet.name);
-				else if (packet.id == "relist") this.relist(packet.name);
-				else if (packet.id == "unreserve") this.unreserve(packet.name);
+				else if (packet.id == "bridgeReject") this.bridgeReject(packet);
+				else if (packet.id == "onReserve") this.onReserve(packet);
+				else if (packet.id == "unlist") this.unlist(packet);
+				else if (packet.id == "relist") this.relist(packet);
+				else if (packet.id == "unreserve") this.unreserve(packet);
 				
 				//Invalid packet
 				else this.send({id:"invalid", level:3, account: this.account, host:this.host, data:packet});
@@ -165,15 +165,15 @@ Client.prototype.close = function() {
 //Logs the client in with a specific account
 //	account		String, the account of the client
 //	password	String, the password of the client
-Client.prototype.login = function(account, password) {
+Client.prototype.login = function(packet) {
 	
-	if (account == '') account = 'anon';
+	if (packet.account == '') packet.account = 'anon';
 	
 	//Verify account and password are strings
-	if (typeof account == "string" && typeof password == "string") {
+	if (typeof packet.account == "string" && typeof packet.password == "string") {
 		
 		//Do query and apply handlers
-		db.query("select * from users where name = ?", account, function(err, rows, fields) {
+		db.query("select * from users where name = ?", packet.account, function(err, rows, fields) {
 			
 			//Errors really shouldn't occur, so throw them and crash the server? Bad idea, w/e.
 			if (err) this.error(err);
@@ -182,22 +182,23 @@ Client.prototype.login = function(account, password) {
 			if (rows.length) {
 				
 				//Compare the guess to stored hash
-				bcrypt.compare(password, rows[0].password, function(err, res) {
+				bcrypt.compare(packet.password, rows[0].password, function(err, res) {
 					
 					//Is a match
 					if (res === true) {
 						
 						//Original account is a non-numbered account (the true username)
-						this.originalAccount = account;
+						this.originalAccount = packet.account;
 						
 						//Append number tag if someone already in with account
-						while (clients[account.toLowerCase()]) {
-							if (account.indexOf("#") >= 0) account = account.substr(0, account.indexOf("#") + 1) + (parseInt(account.substr(account.indexOf("#") + 1)) + 1);
-							else account = account + "#2";
+						while (clients[packet.account.toLowerCase()]) {
+							if (packet.account.indexOf("#") >= 0)
+								packet.account = packet.account.substr(0, packet.account.indexOf("#") + 1) + (parseInt(packet.account.substr(packet.account.indexOf("#") + 1)) + 1);
+							else packet.account = packet.account + "#2";
 						}
 						
 						//Set account name
-						this.account = account;
+						this.account = packet.account;
 						
 						//Set properties from DB
 						this.id = rows[0].id;								//id (row in users table)
@@ -207,26 +208,26 @@ Client.prototype.login = function(account, password) {
 						this.fetchFriends();
 						
 						//Modify the server clients array for easy access
-						clients[account.toLowerCase()] = this;
+						clients[this.account.toLowerCase()] = this;
 						
 						//Tell them they are successful
-						this.send({id: 'onLogin', account: account});
+						this.send({id: 'onLogin', account: this.account});
 						
 						//Upgrade lastlogged
 						db.query("update users set lastlogged = now() where name = ?", this.originalAccount);
 						
 					//Invalid password, tell them so
-					} else this.send({id: 'onLoginFail', reason: 'password'});
+					} else this.send({id: 'onLoginFail', reason: 'password', data: packet});
 					
 				}.bind(this));
 
 			//We don't so return invalid account
-			} else this.send({id: 'onLoginFail', reason: 'account'});
+			} else this.send({id: 'onLoginFail', reason: 'account', data: packet});
 			
 		}.bind(this));
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onLoginFail', reason: 'args'});
+	} else this.send({id: 'onLoginFail', reason: 'args', data: packet});
 }
 
 //Logs the client out
@@ -253,17 +254,17 @@ Client.prototype.logout = function() {
 //Registers an account with a password
 //	account		String, the account of the client
 //	passsword	String, the password of the client
-Client.prototype.register = function(account, password) {
+Client.prototype.register = function(packet) {
 	
 	//Verify account and password are strings
-	if (typeof account == "string" && typeof password == "string") {
+	if (typeof packet.account == "string" && typeof packet.password == "string") {
 		
 		//Validate account name
-		if (/^[a-zA-Z]+$/.test(account) && account.length < 16 && account.length > 0) {
+		if (/^[a-zA-Z]+$/.test(packet.account) && packet.account.length < 16 && packet.account.length > 0) {
 			
 			//Do query and apply handlers
 			//	Oddly enough, the escape function automatically encloses the string
-			db.query("select * from users where name = ?", account, function(err, rows, fields) {
+			db.query("select * from users where name = ?", packet.account, function(err, rows, fields) {
 				
 				//Errors really shouldn't occur, so throw them and crash the server? Bad idea, w/e.
 				if (err) this.error(err);
@@ -275,10 +276,10 @@ Client.prototype.register = function(account, password) {
 					bcrypt.genSalt(10, function(err, salt) {
 						
 						//Hash it
-						bcrypt.hash(password, salt, function(err, hash) {
+						bcrypt.hash(packet.password, salt, function(err, hash) {
 							this.log('HASH: ', hash);
 							//Store it
-							db.query("insert into users (name, password) values (?, ?)", [account, hash], function(err, rows, fields) {
+							db.query("insert into users (name, password) values (?, ?)", [packet.account, hash], function(err, rows, fields) {
 								
 								//Again, errors shouldn't be occuring
 								if (err) this.error(err);
@@ -287,7 +288,7 @@ Client.prototype.register = function(account, password) {
 								if (rows.affectedRows == 1) {
 									
 									//Return positive result
-									this.send({id: 'onRegister', account: account});
+									this.send({id: 'onRegister', account: packet.account});
 									
 								//No rows inserted, throw the error
 								} else this.error(new Error('no rows affected'));
@@ -298,40 +299,40 @@ Client.prototype.register = function(account, password) {
 					}.bind(this));
 					
 				//Account already exists
-				} else this.send({id: 'onRegisterFail', reason: 'duplicate'});
+				} else this.send({id: 'onRegisterFail', reason: 'duplicate', data: packet});
 				
 			}.bind(this));
 		
 		//Account name is not valid
-		} else this.send({id: 'onRegisterFail', reason: 'invalid'});
+		} else this.send({id: 'onRegisterFail', reason: 'invalid', data: packet});
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onRegisterFail', reason: 'args'});
+	} else this.send({id: 'onRegisterFail', reason: 'args', data: packet});
 }
 
 //////////////////////////////////////////////
 //	Communcation
 //////////////////////////////////////////////
 
-Client.prototype.whisper = function(account, message) {
+Client.prototype.whisper = function(packet) {
 	
 	//Verify account and message are strings
-	if (typeof account == "string" && typeof message == "string") {
+	if (typeof packet.account == "string" && typeof packet.message == "string") {
 		
 		//Verify account is logged in
-		if (instance(clients[account.toLowerCase()], Client)) {
+		if (instance(clients[packet.account.toLowerCase()], Client)) {
 			
 			//Echo the send
-			this.send({id: 'onWhisperEcho', account: clients[account.toLowerCase()].account, message: message});
+			this.send({id: 'onWhisperEcho', account: clients[packet.account.toLowerCase()].account, message: packet.message});
 			
 			//Send whisper
-			clients[account.toLowerCase()].send({id: 'onWhisper', account: this.account, message: message});
+			clients[packet.account.toLowerCase()].send({id: 'onWhisper', account: this.account, message: packet.message});
 			
 		//User not logged in
-		} else this.send({id: 'onWhisperFail', reason: 'notlogged', data: {account: account, message: message}});
+		} else this.send({id: 'onWhisperFail', reason: 'notlogged', data: packet});
 		
 	//Account or message improper type/not set
-	} else this.send({id: 'onWhisperFail', reason: 'args', data: {account: account, message: message}});
+	} else this.send({id: 'onWhisperFail', reason: 'args', data: packet});
 }
 
 Client.prototype.echo = function(data) {
@@ -560,7 +561,7 @@ Client.prototype.friendList = function(data) {
 	
 };
 
-Client.prototype.friendAdd = function(account) {
+Client.prototype.friendAdd = function(packet) {
 	
 	//Block friends related actions from anon account
 	if (this.originalAccount.toLowerCase() == "anon") return;
@@ -568,7 +569,7 @@ Client.prototype.friendAdd = function(account) {
 	var query = "select id from users where name = ?";
 	
 	//Select id of person we are trying to add
-	db.query(query, account, function(err, rows, fields) {
+	db.query(query, packet.account, function(err, rows, fields) {
 		
 		//Errors really shouldn't occur, so throw them and crash the server? Bad idea, w/e.
 		if (err) {
@@ -622,17 +623,17 @@ Client.prototype.friendAdd = function(account) {
 					}.bind(this));
 					
 					//Report back
-					this.send({id: 'onFriendAdd', account: account});
+					this.send({id: 'onFriendAdd', account: packet.account});
 				}
 				
 			}.bind(this));
 			
-		} else this.send({id: 'onFriendAddFail', reason: 'account'});
+		} else this.send({id: 'onFriendAddFail', reason: 'account', data: packet});
 		
 	}.bind(this));
 };
 
-Client.prototype.friendRemove = function(account) {
+Client.prototype.friendRemove = function(packet) {
 	
 	//Block friends related actions from anon account
 	if (this.originalAccount.toLowerCase() == "anon") return;
@@ -640,7 +641,7 @@ Client.prototype.friendRemove = function(account) {
 	var query = "select id from users where name = ?";
 	
 	//Select id of person we are trying to remove
-	db.query(query, account, function(err, rows, fields) {
+	db.query(query, packet.account, function(err, rows, fields) {
 		
 		//Errors really shouldn't occur, so throw them and crash the server? Bad idea, w/e.
 		if (err) this.error(err);
@@ -664,7 +665,7 @@ Client.prototype.friendRemove = function(account) {
 					
 					//Remove friend from local list
 					for (var i = 0; i < this.friends.length; i++)
-						if (this.friends[i].account.toLowerCase() == account) {
+						if (this.friends[i].account.toLowerCase() == packet.account) {
 							this.friends.splice(i, 1);
 							break;
 						}
@@ -680,12 +681,12 @@ Client.prototype.friendRemove = function(account) {
 							}
 						}
 					
-					this.send({id: 'onFriendRemove', account: account});
+					this.send({id: 'onFriendRemove', account: packet.account});
 				}
 				
 			}.bind(this));
 			
-		} else this.send({id: 'onFriendRemoveFail', reason: 'account'});
+		} else this.send({id: 'onFriendRemoveFail', reason: 'account', data: packet});
 		
 	}.bind(this));
 };
@@ -694,39 +695,39 @@ Client.prototype.friendRemove = function(account) {
 //	Hosts
 //////////////////////////////////////////////
 
-Client.prototype.reserve = function(host, name) {
+Client.prototype.reserve = function(packet) {
 	
-	var host = clients[host];
+	var host = clients[packet.host];
 	
 	if (host && host.host) {
 		
-		host.send({id: 'reserve', name: name, account: this.originalAccount});
+		host.send({id: 'reserve', name: packet.name, account: this.originalAccount});
 		
-	} else this.send({id: 'onHostFail', reason: 'invalid host'});
+	} else this.send({id: 'onHostFail', reason: 'invalid host', data: packet});
 	
 }
 
-Client.prototype.bridge = function(host) {
+Client.prototype.bridge = function(packet) {
 	
-	var host = clients[host.toLowerCase()];
+	var host = clients[packet.host.toLowerCase()];
 	
 	if (host && host.host === true) {
 		
 		host.send({id: 'bridge', originalAccount: this.originalAccount, account: this.account, ip: this.getIP()});
 		
-	} else this.send({id: 'onBridgeFail', reason: 'invalid host'});
+	} else this.send({id: 'onBridgeFail', reason: 'invalid host', data: packet});
 	
 };
 
-Client.prototype.lobby = function(lobbyName) {
+Client.prototype.lobby = function(packet) {
 	
-	var lobby = lobbies[lobbyName.toLowerCase()];
+	var lobby = lobbies[packet.lobby.toLowerCase()];
 	
 	if (lobby) {
 		
-		lobby.host.send({id: 'lobby', originalAccount: this.originalAccount, account: this.account, ip: this.getIP(), lobby: lobbyName});
+		lobby.host.send({id: 'lobby', originalAccount: this.originalAccount, account: this.account, ip: this.getIP(), lobby: packet.lobby});
 		
-	} else this.send({id: 'onJoinLobbyFail', reason: 'invalid lobby', data: {lobby: lobbyName}});
+	} else this.send({id: 'onJoinLobbyFail', reason: 'invalid lobby', data: packet});
 	
 };
 
@@ -750,50 +751,50 @@ Client.prototype.hostList = function() {
 	this.send({id: 'onHostList', list: hostList});
 }
 
-Client.prototype.upgrade = function(port) {
+Client.prototype.upgrade = function(packet) {
 	
 	this.host = true;
-	this.hostport = port;
+	this.hostport = packet.port;
 	this.send({id: 'onUpgrade'});
 	
 }
 
-Client.prototype.onBridge = function(name, account, key) {
+Client.prototype.onBridge = function(packet) {
 	
-	var client = clients[account.toLowerCase()];
+	var client = clients[packet.account.toLowerCase()];
 	
 	if (client) {
 		
-		client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: key});
-		this.send({id: 'onOnBridge', account: account});
+		client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key});
+		this.send({id: 'onOnBridge', account: packet.account});
 		
-	} else this.send({id: 'onOnBridgeFail', reason: 'invalid account'});
+	} else this.send({id: 'onOnBridgeFail', reason: 'invalid account', data: packet});
 	
 }
 
-Client.prototype.bridgeReject = function(reason, account) {
+Client.prototype.bridgeReject = function(packet) {
 	
-	var client = clients[account.toLowerCase()];
+	var client = clients[packet.account.toLowerCase()];
 	
 	if (client) {
 		
-		client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport});
-		this.send({id: 'onOnBridgeFail', account: account});
+		client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reason: packet.reason});
+		this.send({id: 'onOnBridgeFail', account: packet.account});
 		
-	} else this.send({id: 'onOnBridgeFailFail', reason: 'invalid account'});
+	} else this.send({id: 'onOnBridgeFailFail', reason: 'invalid account', data: packet});
 	
 }
 
 Client.prototype.onLobby = function(account, lobby, key) {
-
+	
 	var client = clients[account.toLowerCase()];
 	
 	if (client) {
 		
-		client.send({id: 'onLobby', lobby: lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: key});
-		this.send({id: 'onOnLobby', account: account});
+		client.send({id: 'onLobby', lobby: packet.lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: packet.key});
+		this.send({id: 'onOnLobby', account: packet.account});
 		
-	} else this.send({id: 'onOnLobbyFail', reason: 'invalid account'});
+	} else this.send({id: 'onOnLobbyFail', reason: 'invalid account', data: packet});
 };
 
 Client.prototype.rejectLobby = function(packet) {
@@ -809,61 +810,61 @@ Client.prototype.rejectLobby = function(packet) {
 	
 };
 
-Client.prototype.onReserve = function(name, account) {
+Client.prototype.onReserve = function(packet) {
 	
-	if (typeof name == 'string') {
-		if (typeof lobbies[name.toLowerCase()] == 'undefined') {
+	if (typeof packet.name == 'string') {
+		if (typeof lobbies[packet.name.toLowerCase()] == 'undefined') {
 			
 			//Create the lobby
-			new Lobby(name, this);
+			new Lobby(packet.name, this);
 			
 			for (var i = 0; i < clients.length; i++) {
 				if (clients[i] == this)
-					clients[i].send({id: 'onOnReserve', name: name, host: this.account});
+					clients[i].send({id: 'onOnReserve', name: packet.name, host: this.account});
 				else
-					clients[i].send({id: 'onReserve', name: name, host: this.account});
+					clients[i].send({id: 'onReserve', name: packet.name, host: this.account});
 			}
 			
-		} else this.send({id: 'onOnReserveFail', reason: 'duplicate', data: {name: name, account: account}});
-	} else this.send({id: 'onOnReserveFail', reason: 'args', data: {name: name, account: account}});
+		} else this.send({id: 'onOnReserveFail', reason: 'duplicate', data: packet});
+	} else this.send({id: 'onOnReserveFail', reason: 'args', data: packet});
 	
 }
 
-Client.prototype.unlist = function(name) {
-	var lobby = lobbies[name.toLowerCase()];
+Client.prototype.unlist = function(packet) {
+	var lobby = lobbies[packet.name.toLowerCase()];
 	
 	if (typeof lobby != "undefined") {
 		if (lobby.host == this) {
 			if (lobby.listed !== false) {
 				lobby.unlist();
-				this.send({id: 'onUnlist', name: name});
-			} else this.send({id: 'onUnlistFail', reason: 'unlisted', data: {name: name}});
-		} else this.send({id: 'onUnlistFail', reason: 'not host', data: {name: name}});
-	} else this.send({id: 'onUnlistFail', reason: 'nonexistent', data: {name: name}});
+				this.send({id: 'onUnlist', name: packet.name});
+			} else this.send({id: 'onUnlistFail', reason: 'unlisted', data: packet});
+		} else this.send({id: 'onUnlistFail', reason: 'not host', data: packet});
+	} else this.send({id: 'onUnlistFail', reason: 'nonexistent', data: packet});
 }
 
-Client.prototype.relist = function(name) {
-	var lobby = lobbies[name.toLowerCase()];
+Client.prototype.relist = function(packet) {
+	var lobby = lobbies[packet.name.toLowerCase()];
 	
 	if (typeof lobby != "undefined") {
 		if (lobby.host == this) {
 			if (lobby.listed === false) {
 				lobby.relist();
-				this.send({id: 'onRelist', name: name});
-			} else this.send({id: 'onRelistFail', reason: 'listed', data: {name: name}});
-		} else this.send({id: 'onRelistFail', reason: 'not host', data: {name: name}});
-	} else this.send({id: 'onRelistFail', reason: 'nonexistent', data: {name: name}});
+				this.send({id: 'onRelist', name: packet.name});
+			} else this.send({id: 'onRelistFail', reason: 'listed', data: packet});
+		} else this.send({id: 'onRelistFail', reason: 'not host', data: packet});
+	} else this.send({id: 'onRelistFail', reason: 'nonexistent', data: packet});
 }
 
-Client.prototype.unreserve = function(name) {
-	var lobby = lobbies[name.toLowerCase()];
+Client.prototype.unreserve = function(packet) {
+	var lobby = lobbies[packet.name.toLowerCase()];
 	
 	if (typeof lobby != "undefined") {
 		if (lobby.host == this) {
 			lobby.unreserve();
-			this.send({id: 'onUnreserve', name: name});
-		} else this.send({id: 'onUnreserveFail', reason: 'not host', data: {name: name}});
-	} else this.send({id: 'onUnreserveFail', reason: 'nonexistent', data: {name: name}});
+			this.send({id: 'onUnreserve', name: packet.name});
+		} else this.send({id: 'onUnreserveFail', reason: 'not host', data: packet});
+	} else this.send({id: 'onUnreserveFail', reason: 'nonexistent', data: packet});
 }
 
 //////////////////////////////////////////////
