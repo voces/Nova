@@ -260,7 +260,7 @@ Client.prototype.register = function(packet) {
 	if (typeof packet.account == "string" && typeof packet.password == "string") {
 		
 		//Validate account name
-		if (/^[a-zA-Z ']+$/.test(packet.account) && packet.account.length < 32 && packet.account.length > 0) {
+		if (/^[a-zA-z'][a-zA-z ']*[a-zA-Z']$/.test(packet.account) && packet.account.length < 32) {
 			
 			//Do query and apply handlers
 			//	Oddly enough, the escape function automatically encloses the string
