@@ -785,9 +785,9 @@ Client.prototype.bridgeReject = function(packet) {
 	
 }
 
-Client.prototype.onLobby = function(account, lobby, key) {
+Client.prototype.onLobby = function(packet) {
 	
-	var client = clients[account.toLowerCase()];
+	var client = clients[packet.account.toLowerCase()];
 	
 	if (client) {
 		
