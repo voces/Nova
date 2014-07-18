@@ -120,7 +120,6 @@ Client.prototype.receive = function(data) {
 			//Hosts
 			else if (packet.id == "reserve") this.reserve(packet);
 			else if (packet.id == "bridge") this.bridge(packet);
-			else if (packet.id == "lobby") this.lobby(packet);
 			else if (packet.id == "lobbyList") this.lobbyList();
 			else if (packet.id == "hostList") this.hostList();
 			else if (packet.id == "upgrade") this.upgrade(packet);
@@ -709,25 +708,16 @@ Client.prototype.reserve = function(packet) {
 
 Client.prototype.bridge = function(packet) {
 	
-	var host = clients[packet.host.toLowerCase()];
-	
-	if (host && host.host === true) {
+	//Validate host argument
+	if (typeof packet.host == "string") {
 		
-		host.send({id: 'bridge', originalAccount: this.originalAccount, account: this.account, ip: this.getIP()});
+		//Validate user exists and is a host
+		var host = clients[packet.host.toLowerCase()];
 		
-	} else this.send({id: 'onBridgeFail', reason: 'invalid host', data: packet});
-	
-};
-
-Client.prototype.lobby = function(packet) {
-	
-	var lobby = lobbies[packet.lobby.toLowerCase()];
-	
-	if (lobby) {
-		
-		lobby.host.send({id: 'lobby', originalAccount: this.originalAccount, account: this.account, ip: this.getIP(), lobby: packet.lobby});
-		
-	} else this.send({id: 'onJoinLobbyFail', reason: 'invalid lobby', data: packet});
+		if (host && host.host === true)
+			host.send({id: 'bridge', originalAccount: this.originalAccount, account: this.account, ip: this.getIP()});
+		else this.send({id: 'onBridgeFail', reason: 'invalid host', data: packet});
+	} else this.send({id: 'onBridgeFail', reason: 'args', data: packet});
 	
 };
 
@@ -765,7 +755,7 @@ Client.prototype.onBridge = function(packet) {
 	
 	if (client) {
 		
-		client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key});
+		client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key, account: this.account});
 		this.send({id: 'onOnBridge', account: packet.account});
 		
 	} else this.send({id: 'onOnBridgeFail', reason: 'invalid account', data: packet});
@@ -774,15 +764,19 @@ Client.prototype.onBridge = function(packet) {
 
 Client.prototype.bridgeReject = function(packet) {
 	
-	var client = clients[packet.account.toLowerCase()];
-	
-	if (client) {
+	//Validate account argument
+	if (typeof packet.account == "string") {
 		
-		client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reason: packet.reason});
-		this.send({id: 'onOnBridgeFail', account: packet.account});
+		//Validate client exists
+		var client = clients[packet.account.toLowerCase()];
 		
-	} else this.send({id: 'onOnBridgeFailFail', reason: 'invalid account', data: packet});
-	
+		if (typeof client != "undefined") {
+			
+			client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reason: packet.reason});
+			this.send({id: 'onOnBridgeReject', account: packet.account});
+			
+		} else this.send({id: 'onBridgeRejectFail', reason: 'badAccount', data: packet});
+	} else this.send({id: 'onBridgeRejectFail', reason: 'args', data: packet});
 }
 
 Client.prototype.onLobby = function(packet) {
