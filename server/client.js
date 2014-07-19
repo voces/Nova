@@ -134,6 +134,7 @@ Client.prototype.receive = function(data) {
 				else if (packet.id == "unlist") this.unlist(packet);
 				else if (packet.id == "relist") this.relist(packet);
 				else if (packet.id == "unreserve") this.unreserve(packet);
+				else if (packet.id == "update") this.update(packet);
 				
 				//Invalid packet
 				else this.send({id:"invalid", level:3, account: this.account, host:this.host, data:packet});
@@ -725,7 +726,14 @@ Client.prototype.lobbyList = function() {
 	var lobbyList = [];
 	
 	for (var i = 0; i < lobbies.length; i++)
-		if (lobbies[i].listed) lobbyList.push({name: lobbies[i].name, listed: lobbies[i].listed.getTime(), host: lobbies[i].host.account});
+		if (lobbies[i].listed)
+			lobbyList.push({
+				name: lobbies[i].name,
+				listed: lobbies[i].listed.getTime(),
+				host: lobbies[i].host.account,
+				preview: lobbies[i].preview,
+				protocol: lobbies[i].protocol
+			});
 	
 	lobbyList.sort(function(a, b) {return a.listed - b.listed;});
 	
@@ -825,41 +833,101 @@ Client.prototype.onReserve = function(packet) {
 }
 
 Client.prototype.unlist = function(packet) {
-	var lobby = lobbies[packet.name.toLowerCase()];
 	
-	if (typeof lobby != "undefined") {
-		if (lobby.host == this) {
-			if (lobby.listed !== false) {
+	//Validate account argument
+	if (typeof packet.name == "string") {
+		
+		//Validate lobby exists
+		var lobby = lobbies[packet.name.toLowerCase()];
+		if (typeof lobby != "undefined") {
+			
+			//Validate user is host
+			if (lobby.host == this) {
+			
 				lobby.unlist();
 				this.send({id: 'onUnlist', name: packet.name});
-			} else this.send({id: 'onUnlistFail', reason: 'unlisted', data: packet});
-		} else this.send({id: 'onUnlistFail', reason: 'not host', data: packet});
-	} else this.send({id: 'onUnlistFail', reason: 'nonexistent', data: packet});
+				
+			} else this.send({id: 'onUnlistFail', reason: 'not host', data: packet});
+		} else this.send({id: 'onUnlistFail', reason: 'nonexistent', data: packet});
+	} else this.send({id: 'onUnlistFail', reason: 'args', data: packet});
 }
 
 Client.prototype.relist = function(packet) {
-	var lobby = lobbies[packet.name.toLowerCase()];
 	
-	if (typeof lobby != "undefined") {
-		if (lobby.host == this) {
-			if (lobby.listed === false) {
-				lobby.relist();
-				this.send({id: 'onRelist', name: packet.name});
-			} else this.send({id: 'onRelistFail', reason: 'listed', data: packet});
-		} else this.send({id: 'onRelistFail', reason: 'not host', data: packet});
-	} else this.send({id: 'onRelistFail', reason: 'nonexistent', data: packet});
+	//Validate name argument
+	if (typeof packet.name == "string") {
+		
+		//Validate lobby exists
+		var lobby = lobbies[packet.name.toLowerCase()];
+		if (typeof lobby != "undefined") {
+			
+			//Validate user is host
+			if (lobby.host == this) {
+				
+				//Validate lobby is not listed
+				if (lobby.listed === false) {
+					
+					lobby.unlist();
+					this.send({id: 'onRelist', name: packet.name});
+					
+				} else this.send({id: 'onRelistFail', reason: 'listed', data: packet});
+			} else this.send({id: 'onRelistFail', reason: 'not host', data: packet});
+		} else this.send({id: 'onRelistFail', reason: 'nonexistent', data: packet});
+	} else this.send({id: 'onRelistFail', reason: 'args', data: packet});
 }
 
 Client.prototype.unreserve = function(packet) {
-	var lobby = lobbies[packet.name.toLowerCase()];
 	
-	if (typeof lobby != "undefined") {
-		if (lobby.host == this) {
-			lobby.unreserve();
-			this.send({id: 'onUnreserve', name: packet.name});
-		} else this.send({id: 'onUnreserveFail', reason: 'not host', data: packet});
-	} else this.send({id: 'onUnreserveFail', reason: 'nonexistent', data: packet});
-}
+	//Validate name argument
+	if (typeof packet.name == "string") {
+		
+		//Validate lobby exists
+		var lobby = lobbies[packet.name.toLowerCase()];
+		if (typeof lobby != "undefined") {
+			
+			//Validate user is host
+			if (lobby.host == this) {
+				
+				//This method does a global announcement, so no need to explicitly respond
+				lobby.unreserve();
+				
+			} else this.send({id: 'onUnreserveFail', reason: 'not host', data: packet});
+		} else this.send({id: 'onUnreserveFail', reason: 'nonexistent', data: packet});
+	} else this.send({id: 'onUnreserveFail', reason: 'args', data: packet});
+};
+
+Client.prototype.update = function(packet) {
+	
+	//Validate name argument
+	if (typeof packet.name == "string") {
+		
+		//Validate lobby exists
+		var lobby = lobbies[packet.name.toLowerCase()];
+		if (typeof lobby != "undefined") {
+			
+			//Validate user is host
+			if (lobby.host == this) {
+				
+				if (typeof packet.preview != "undefined")
+					lobby.preview = packet.preview;
+				
+				if (typeof packet.protocol != "undefined")
+					lobby.protocol = packet.protocol;
+				
+				var onUpdateData = {
+					id: 'onUpdate',
+					name: packet.name,
+					preview: lobby.preview,
+					protocol: lobby.protocol
+				};
+				
+				for (var i = 0; i < clients.length; i++)
+					clients[i].send(onUpdateData);
+				
+			} else this.send({id: 'onUpdateFail', reason: 'not host', data: packet});
+		} else this.send({id: 'onUpdateFail', reason: 'nonexistent', data: packet});
+	} else this.send({id: 'onUpdateFail', reason: 'args', data: packet});
+};
 
 //////////////////////////////////////////////
 //	Misc
