@@ -699,11 +699,8 @@ Client.prototype.reserve = function(packet) {
 	
 	var host = clients[packet.host];
 	
-	if (host && host.host) {
-		
-		host.send({id: 'reserve', name: packet.name, account: this.originalAccount});
-		
-	} else this.send({id: 'onHostFail', reason: 'invalid host', data: packet});
+	if (host && host.host) host.send({id: 'reserve', name: packet.name, owner: this.originalAccount});
+	else this.send({id: 'onHostFail', reason: 'invalid host', data: packet});
 	
 }
 
@@ -822,9 +819,9 @@ Client.prototype.onReserve = function(packet) {
 			
 			for (var i = 0; i < clients.length; i++) {
 				if (clients[i] == this)
-					clients[i].send({id: 'onOnReserve', name: packet.name, host: this.account});
+					clients[i].send({id: 'onOnReserve', name: packet.name, host: this.account, owner: packet.owner});
 				else
-					clients[i].send({id: 'onReserve', name: packet.name, host: this.account});
+					clients[i].send({id: 'onReserve', name: packet.name, host: this.account, owner: packet.owner});
 			}
 			
 		} else this.send({id: 'onOnReserveFail', reason: 'duplicate', data: packet});
@@ -1068,9 +1065,7 @@ Client.prototype.send = function(data, useUtil) {
 		//Send via socket
 		else if (this.type == "s") this.socket.write(s);
 		
-	} catch (err) {
-		this.log(cc.bred, err);
-	};
+	} catch(e){};
 }
 
 //Expose Client class
