@@ -671,7 +671,7 @@ Client.prototype.friendRemove = function(packet) {
 						}
 					
 					//Remove mutual status if it exists
-					var removee = clients[account.toLowerCase()];
+					var removee = clients[packet.account.toLowerCase()];
 					
 					if (removee != null)
 						for (var i = 0; i < removee.friends.length; i++) {
