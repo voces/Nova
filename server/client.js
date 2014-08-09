@@ -728,8 +728,10 @@ Client.prototype.lobbyList = function() {
 				name: lobbies[i].name,
 				listed: lobbies[i].listed.getTime(),
 				host: lobbies[i].host.account,
-				preview: lobbies[i].preview,
-				protocol: lobbies[i].protocol
+				protocol: lobbies[i].protocol,
+				date: lobbies[i].date,
+				version: lobbies[i].version,
+				preview: lobbies[i].preview
 			});
 	
 	lobbyList.sort(function(a, b) {return a.listed - b.listed;});
@@ -905,17 +907,25 @@ Client.prototype.update = function(packet) {
 			//Validate user is host
 			if (lobby.host == this) {
 				
-				if (typeof packet.preview != "undefined")
-					lobby.preview = packet.preview;
-				
 				if (typeof packet.protocol != "undefined")
 					lobby.protocol = packet.protocol;
+				
+				if (typeof packet.date != "undefined")
+					lobby.date = packet.date;
+				
+				if (typeof packet.version != "undefined")
+					lobby.version = packet.version;
+				
+				if (typeof packet.preview != "undefined")
+					lobby.preview = packet.preview;
 				
 				var onUpdateData = {
 					id: 'onUpdate',
 					name: packet.name,
-					preview: lobby.preview,
-					protocol: lobby.protocol
+					protocol: lobby.protocol,
+					date: lobby.date,
+					version: lobby.version,
+					preview: lobby.preview
 				};
 				
 				for (var i = 0; i < clients.length; i++)
