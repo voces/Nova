@@ -146,6 +146,14 @@ Client.prototype.receive = function(data) {
 Client.prototype.close = function() {
 	this.log('Disconnected');
 	
+	//Tell friends
+	for (var i = 0; i < this.friends.length; i++) {
+		var key = this.friends[i].account.toLowerCase();
+		
+		if (this.friends[i].mutual && key in clients)
+			clients[key].send({id: 'onWhisper', account: this.account, message: "Your friend " + this.account + " has logged off."});
+	}
+	
 	if (this.group) this.group.removeClient(this);
 	
 	for (var i = 0; i < lobbies.length; i++) {
@@ -217,24 +225,33 @@ Client.prototype.login = function(packet) {
 						db.query("update users set lastlogged = now() where name = ?", this.originalAccount);
 						
 					//Invalid password, tell them so
-					} else this.send({id: 'onLoginFail', reason: 'password', data: packet});
+					} else this.send({id: 'onLoginFail', reason: 'Invalid password.', data: packet});
 					
 				}.bind(this));
 
 			//We don't so return invalid account
-			} else this.send({id: 'onLoginFail', reason: 'account', data: packet});
+			} else this.send({id: 'onLoginFail', reason: 'Account does not exist.', data: packet});
 			
 		}.bind(this));
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onLoginFail', reason: 'args', data: packet});
+	} else this.send({id: 'onLoginFail', reason: 'Account or password not specified.', data: packet});
 }
 
 //Logs the client out
 Client.prototype.logout = function() {
 	
+	//Tell friends
+	for (var i = 0; i < this.friends.length; i++) {
+		var key = this.friends[i].account.toLowerCase();
+		
+		if (this.friends[i].mutual && key in clients)
+			clients[key].send({id: 'onWhisper', account: this.account, message: "Your friend " + this.account + " has logged off."});
+	}
+	
 	//Remove client from group
 	if (this.group) this.group.removeClient(this);
+	this.group = null;
 	
 	//Set account to null (logged out)
 	var tempAccount = this.account;
@@ -277,7 +294,7 @@ Client.prototype.register = function(packet) {
 						
 						//Hash it
 						bcrypt.hash(packet.password, salt, function(err, hash) {
-							this.log('HASH: ', hash);
+							
 							//Store it
 							db.query("insert into users (name, password) values (?, ?)", [packet.account, hash], function(err, rows, fields) {
 								
@@ -299,15 +316,15 @@ Client.prototype.register = function(packet) {
 					}.bind(this));
 					
 				//Account already exists
-				} else this.send({id: 'onRegisterFail', reason: 'duplicate', data: packet});
+				} else this.send({id: 'onRegisterFail', reason: 'That account already exists.', data: packet});
 				
 			}.bind(this));
 		
 		//Account name is not valid
-		} else this.send({id: 'onRegisterFail', reason: 'invalid', data: packet});
+		} else this.send({id: 'onRegisterFail', reason: 'That account does not meet requirements.', data: packet});
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onRegisterFail', reason: 'args', data: packet});
+	} else this.send({id: 'onRegisterFail', reason: 'Account or password not specified.', data: packet});
 }
 
 //////////////////////////////////////////////
@@ -697,10 +714,16 @@ Client.prototype.friendRemove = function(packet) {
 
 Client.prototype.reserve = function(packet) {
 	
-	var host = clients[packet.host];
-	
-	if (host && host.host) host.send({id: 'reserve', name: packet.name, owner: this.originalAccount});
-	else this.send({id: 'onHostFail', reason: 'invalid host', data: packet});
+	//Validate host argument
+	if (typeof packet.host == "string") {
+		
+		//Validate user exists and is a host
+		var host = clients[packet.host.toLowerCase()];
+		
+		if (host && host.host === true)
+			host.send({id: 'reserve', name: packet.name, owner: this.originalAccount});
+		else this.send({id: 'onReserveFail', reason: 'Host not found.', data: packet});
+	} else this.send({id: 'onReserveFail', reason: 'No host specified.', data: packet});
 	
 }
 
@@ -714,8 +737,8 @@ Client.prototype.bridge = function(packet) {
 		
 		if (host && host.host === true)
 			host.send({id: 'bridge', originalAccount: this.originalAccount, account: this.account, ip: this.getIP()});
-		else this.send({id: 'onBridgeFail', reason: 'invalid host', data: packet});
-	} else this.send({id: 'onBridgeFail', reason: 'args', data: packet});
+		else this.send({id: 'onBridgeFail', reason: 'Host not found.', data: packet});
+	} else this.send({id: 'onBridgeFail', reason: 'No host specified.', data: packet});
 	
 };
 
@@ -758,15 +781,17 @@ Client.prototype.upgrade = function(packet) {
 
 Client.prototype.onBridge = function(packet) {
 	
-	var client = clients[packet.account.toLowerCase()];
-	
-	if (client) {
+	//Validate account argument
+	if (typeof packet.account == "string") {
+		var client = clients[packet.account.toLowerCase()];
 		
-		client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key, account: this.account});
-		this.send({id: 'onOnBridge', account: packet.account});
-		
-	} else this.send({id: 'onOnBridgeFail', reason: 'invalid account', data: packet});
-	
+		if (client) {
+			
+			client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key, account: this.account});
+			this.send({id: 'onOnBridge', account: packet.account});
+			
+		} else this.send({id: 'onOnBridgeFail', reason: 'Client not found.', data: packet});
+	} else this.send({id: 'onOnBridgeFail', reason: 'Account not specified', data: packet});
 }
 
 Client.prototype.bridgeReject = function(packet) {
@@ -782,32 +807,38 @@ Client.prototype.bridgeReject = function(packet) {
 			client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reason: packet.reason});
 			this.send({id: 'onOnBridgeReject', account: packet.account});
 			
-		} else this.send({id: 'onBridgeRejectFail', reason: 'badAccount', data: packet});
-	} else this.send({id: 'onBridgeRejectFail', reason: 'args', data: packet});
+		} else this.send({id: 'onBridgeRejectFail', reason: 'Client not found.', data: packet});
+	} else this.send({id: 'onBridgeRejectFail', reason: 'Account not specified.', data: packet});
 }
 
 Client.prototype.onLobby = function(packet) {
 	
-	var client = clients[packet.account.toLowerCase()];
-	
-	if (client) {
+	//Validate account argument
+	if (typeof packet.account == "string") {
+		var client = clients[packet.account.toLowerCase()];
 		
-		client.send({id: 'onLobby', lobby: packet.lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: packet.key});
-		this.send({id: 'onOnLobby', account: packet.account});
-		
-	} else this.send({id: 'onOnLobbyFail', reason: 'invalid account', data: packet});
+		if (client) {
+			
+			client.send({id: 'onLobby', lobby: packet.lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: packet.key});
+			this.send({id: 'onOnLobby', account: packet.account});
+			
+		} else this.send({id: 'onOnLobbyFail', reason: 'Account not found.', data: packet});
+	} else this.send({id: 'onOnLobbyFail', reason: 'Account not specified.', data: packet});
 };
 
 Client.prototype.rejectLobby = function(packet) {
 	
-	var client = clients[packet.data.account.toLowerCase()];
-	
-	if (client) {
+	//Validate account argument
+	if (typeof packet.account == "string") {
+		var client = clients[packet.data.account.toLowerCase()];
 		
-		client.send({id: 'onLobbyFail', lobby: packet.data.lobby, host: this.account});
-		this.send({id: 'onRejectLobby', data: packet});
-		
-	} else this.send({id: 'onRejectLobbyFail', reason: 'invalid account'});
+		if (client) {
+			
+			client.send({id: 'onLobbyFail', lobby: packet.data.lobby, host: this.account});
+			this.send({id: 'onRejectLobby', data: packet});
+			
+		} else this.send({id: 'onRejectLobbyFail', reason: 'Account not found.'});
+	} else this.send({id: 'onRejectLobbyFail', reason: 'Account not specified.', data: packet});
 	
 };
 
@@ -826,8 +857,8 @@ Client.prototype.onReserve = function(packet) {
 					clients[i].send({id: 'onReserve', name: packet.name, host: this.account, owner: packet.owner});
 			}
 			
-		} else this.send({id: 'onOnReserveFail', reason: 'duplicate', data: packet});
-	} else this.send({id: 'onOnReserveFail', reason: 'args', data: packet});
+		} else this.send({id: 'onOnReserveFail', reason: 'Lobby already exists.', data: packet});
+	} else this.send({id: 'onOnReserveFail', reason: 'Lobby not specified.', data: packet});
 	
 }
 
@@ -846,9 +877,9 @@ Client.prototype.unlist = function(packet) {
 				lobby.unlist();
 				this.send({id: 'onUnlist', name: packet.name});
 				
-			} else this.send({id: 'onUnlistFail', reason: 'not host', data: packet});
-		} else this.send({id: 'onUnlistFail', reason: 'nonexistent', data: packet});
-	} else this.send({id: 'onUnlistFail', reason: 'args', data: packet});
+			} else this.send({id: 'onUnlistFail', reason: 'You are not the host.', data: packet});
+		} else this.send({id: 'onUnlistFail', reason: 'Lobby does not exist.', data: packet});
+	} else this.send({id: 'onUnlistFail', reason: 'Lobby not specified.', data: packet});
 }
 
 Client.prototype.relist = function(packet) {
@@ -869,10 +900,10 @@ Client.prototype.relist = function(packet) {
 					lobby.unlist();
 					this.send({id: 'onRelist', name: packet.name});
 					
-				} else this.send({id: 'onRelistFail', reason: 'listed', data: packet});
-			} else this.send({id: 'onRelistFail', reason: 'not host', data: packet});
-		} else this.send({id: 'onRelistFail', reason: 'nonexistent', data: packet});
-	} else this.send({id: 'onRelistFail', reason: 'args', data: packet});
+				} else this.send({id: 'onRelistFail', reason: 'That lobby is already listed.', data: packet});
+			} else this.send({id: 'onRelistFail', reason: 'You are not the host.', data: packet});
+		} else this.send({id: 'onRelistFail', reason: 'Lobby does not exist.', data: packet});
+	} else this.send({id: 'onRelistFail', reason: 'Lobby not specified.', data: packet});
 }
 
 Client.prototype.unreserve = function(packet) {
@@ -890,9 +921,9 @@ Client.prototype.unreserve = function(packet) {
 				//This method does a global announcement, so no need to explicitly respond
 				lobby.unreserve();
 				
-			} else this.send({id: 'onUnreserveFail', reason: 'not host', data: packet});
-		} else this.send({id: 'onUnreserveFail', reason: 'nonexistent', data: packet});
-	} else this.send({id: 'onUnreserveFail', reason: 'args', data: packet});
+			} else this.send({id: 'onUnreserveFail', reason: 'You are not the host.', data: packet});
+		} else this.send({id: 'onUnreserveFail', reason: 'Lobby does not exist.', data: packet});
+	} else this.send({id: 'onUnreserveFail', reason: 'Lobby not specified.', data: packet});
 };
 
 Client.prototype.update = function(packet) {
@@ -931,9 +962,9 @@ Client.prototype.update = function(packet) {
 				for (var i = 0; i < clients.length; i++)
 					clients[i].send(onUpdateData);
 				
-			} else this.send({id: 'onUpdateFail', reason: 'not host', data: packet});
-		} else this.send({id: 'onUpdateFail', reason: 'nonexistent', data: packet});
-	} else this.send({id: 'onUpdateFail', reason: 'args', data: packet});
+			} else this.send({id: 'onUpdateFail', reason: 'You are not the host.', data: packet});
+		} else this.send({id: 'onUpdateFail', reason: 'Lobby does not exist.', data: packet});
+	} else this.send({id: 'onUpdateFail', reason: 'Lobby not specified.', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -1000,6 +1031,7 @@ Client.prototype.setGroup = function(group) {
 
 //Same as above, except group IS a group...
 Client.prototype._setGroup = function(group) {
+	
 	if (group.canJoin(this)) {
 		
 		//Remove them from any present group
@@ -1013,7 +1045,7 @@ Client.prototype._setGroup = function(group) {
 	} else {
 		if (group.clients.length == 0) group.destroy();
 		
-		this.send({id: 'onJoinFail', reason: 'access'});
+		this.send({id: 'onJoinFail', reason: 'You cannot join.'});
 	}
 }
 
