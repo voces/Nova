@@ -225,17 +225,17 @@ Client.prototype.login = function(packet) {
 						db.query("update users set lastlogged = now() where name = ?", this.originalAccount);
 						
 					//Invalid password, tell them so
-					} else this.send({id: 'onLoginFail', reason: 'Invalid password.', data: packet});
+					} else this.send({id: 'onLoginFail', reasonCode: 0, reason: 'Provided password is incorrect.', data: packet});
 					
 				}.bind(this));
 
 			//We don't so return invalid account
-			} else this.send({id: 'onLoginFail', reason: 'Account does not exist.', data: packet});
+			} else this.send({id: 'onLoginFail', reasonCode: 1, reason: 'Provided account does not exist.', data: packet});
 			
 		}.bind(this));
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onLoginFail', reason: 'Account or password not specified.', data: packet});
+	} else this.send({id: 'onLoginFail', reasonCode: 2, reason: 'Account or password not provided.', data: packet});
 }
 
 //Logs the client out
@@ -316,15 +316,15 @@ Client.prototype.register = function(packet) {
 					}.bind(this));
 					
 				//Account already exists
-				} else this.send({id: 'onRegisterFail', reason: 'That account already exists.', data: packet});
+				} else this.send({id: 'onRegisterFail', reasonCode: 3, reason: 'Provided account already exists.', data: packet});
 				
 			}.bind(this));
 		
 		//Account name is not valid
-		} else this.send({id: 'onRegisterFail', reason: 'That account does not meet requirements.', data: packet});
+		} else this.send({id: 'onRegisterFail', reasonCode: 4, reason: 'Provided account does not meet requirements.', data: packet});
 		
 	//Account or password improper type/not set
-	} else this.send({id: 'onRegisterFail', reason: 'Account or password not specified.', data: packet});
+	} else this.send({id: 'onRegisterFail', reasonCode: 5, reason: 'Account or password not provided.', data: packet});
 }
 
 //////////////////////////////////////////////
@@ -346,17 +346,17 @@ Client.prototype.whisper = function(packet) {
 			clients[packet.account.toLowerCase()].send({id: 'onWhisper', account: this.account, message: packet.message});
 			
 		//User not logged in
-		} else this.send({id: 'onWhisperFail', reason: 'notlogged', data: packet});
+		} else this.send({id: 'onWhisperFail', reasonCode: 6, reason: 'Provided account is not logged in.', data: packet});
 		
 	//Account or message improper type/not set
-	} else this.send({id: 'onWhisperFail', reason: 'args', data: packet});
+	} else this.send({id: 'onWhisperFail', reasonCode: 7, reason: 'Account not provided.', data: packet});
 }
 
 Client.prototype.echo = function(data) {
 	
 	//Modify data
 	data.id = 'onEcho';
-	data.timestamp = new Date().getTime();
+	data.timestamp = Date.now();
 	
 	//Send to client
 	this.send(data);
@@ -369,13 +369,13 @@ Client.prototype.broadcast = function(data) {
 		
 		//Modify data
 		data.id = 'onBroadcast';
-		data.timestamp = new Date().getTime();
+		data.timestamp = Date.now();
 		
 		//Broadcast to group
 		this.group.send(data, this);
 	
 	//Else give them a fail
-	} else this.send({id: 'onBroadcastFail', reason: 'no group'});
+	} else this.send({id: 'onBroadcastFail', reasonCode: 8, reason: 'You are not in a group.'});
 }
 
 //////////////////////////////////////////////
@@ -391,7 +391,7 @@ Client.prototype.join = function(group) {
 		this.setGroup(group);
 	
 	//Group isn't string
-	} else this.send({id: 'onJoinFail', reason: 'args'});
+	} else this.send({id: 'onJoinFail', reasonCode: 9, reason: 'Group not specified.'});
 		
 }
 
@@ -402,7 +402,7 @@ Client.prototype.noGroup = function(data) {
 		this.group.removeClient(this);
 		this.send({id: 'onNoGroup', data: data});
 		this.group = null;
-	} else this.send({id: 'onNoGroupFail', reason: 'no group', data: data});
+	} else this.send({id: 'onNoGroupFail', reasonCode: 10, reason: 'You are not in a group.', data: data});
 	
 }
 
@@ -606,7 +606,7 @@ Client.prototype.friendAdd = function(packet) {
 				if (err) {
 					
 					//They are already added
-					if (err.code == 'ER_DUP_ENTRY') this.send({id: 'onFriendAddFail', reason: 'duplicate'});
+					if (err.code == 'ER_DUP_ENTRY') this.send({id: 'onFriendAddFail', reasonCode: 11, reason: 'Provided account is already a friend.'});
 					
 					//something else
 					else this.error(err);
@@ -645,7 +645,7 @@ Client.prototype.friendAdd = function(packet) {
 				
 			}.bind(this));
 			
-		} else this.send({id: 'onFriendAddFail', reason: 'account', data: packet});
+		} else this.send({id: 'onFriendAddFail', reasonCode: 12, reason: 'Provided account does not exist.', data: packet});
 		
 	}.bind(this));
 };
@@ -675,7 +675,7 @@ Client.prototype.friendRemove = function(packet) {
 				if (err) this.error(err);
 				
 				//They weren't even added
-				else if (rows2.affectedRows == 0) this.send({id: 'onFriendRemoveFail', reason: 'not friend'});
+				else if (rows2.affectedRows == 0) this.send({id: 'onFriendRemoveFail', reasonCode: 13, reason: 'Provided account is not friends list.'});
 				
 				//Success
 				else {
@@ -703,7 +703,7 @@ Client.prototype.friendRemove = function(packet) {
 				
 			}.bind(this));
 			
-		} else this.send({id: 'onFriendRemoveFail', reason: 'account', data: packet});
+		} else this.send({id: 'onFriendRemoveFail', reasonCode: 14, reason: 'Provided account does not exist.', data: packet});
 		
 	}.bind(this));
 };
@@ -722,8 +722,8 @@ Client.prototype.reserve = function(packet) {
 		
 		if (host && host.host === true)
 			host.send({id: 'reserve', name: packet.name, owner: this.originalAccount});
-		else this.send({id: 'onReserveFail', reason: 'Host not found.', data: packet});
-	} else this.send({id: 'onReserveFail', reason: 'No host specified.', data: packet});
+		else this.send({id: 'onReserveFail', reasonCode: 15, reason: 'Provided account not logged in.', data: packet});
+	} else this.send({id: 'onReserveFail', reasonCode: 16, reason: 'Account not provided.', data: packet});
 	
 }
 
@@ -737,8 +737,8 @@ Client.prototype.bridge = function(packet) {
 		
 		if (host && host.host === true)
 			host.send({id: 'bridge', originalAccount: this.originalAccount, account: this.account, ip: this.getIP()});
-		else this.send({id: 'onBridgeFail', reason: 'Host not found.', data: packet});
-	} else this.send({id: 'onBridgeFail', reason: 'No host specified.', data: packet});
+		else this.send({id: 'onBridgeFail', reasonCode: 17, reason: 'Provided account not logged in.', data: packet});
+	} else this.send({id: 'onBridgeFail', reasonCode: 18, reason: 'Account not provided.', data: packet});
 	
 };
 
@@ -749,7 +749,7 @@ Client.prototype.lobbyList = function() {
 		if (lobbies[i].listed)
 			lobbyList.push({
 				name: lobbies[i].name,
-				listed: lobbies[i].listed.getTime(),
+				listed: lobbies[i].listed,
 				host: lobbies[i].host.account,
 				protocol: lobbies[i].protocol,
 				date: lobbies[i].date,
@@ -787,11 +787,12 @@ Client.prototype.onBridge = function(packet) {
 		
 		if (client) {
 			
+			//Tell client and host
 			client.send({id: 'onBridge', ip: this.getIP(), port: this.hostport, key: packet.key, account: this.account});
 			this.send({id: 'onOnBridge', account: packet.account});
 			
-		} else this.send({id: 'onOnBridgeFail', reason: 'Client not found.', data: packet});
-	} else this.send({id: 'onOnBridgeFail', reason: 'Account not specified', data: packet});
+		} else this.send({id: 'onOnBridgeFail', reasonCode: 19, reason: 'Provided account not logged in.', data: packet});
+	} else this.send({id: 'onOnBridgeFail', reasonCode: 20, reason: 'Account not provided', data: packet});
 }
 
 Client.prototype.bridgeReject = function(packet) {
@@ -804,11 +805,11 @@ Client.prototype.bridgeReject = function(packet) {
 		
 		if (typeof client != "undefined") {
 			
-			client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reason: packet.reason});
+			client.send({id: 'onBridgeFail', ip: this.getIP(), port: this.hostport, reasonCode: 21, reason: packet.reason});
 			this.send({id: 'onOnBridgeReject', account: packet.account});
 			
-		} else this.send({id: 'onBridgeRejectFail', reason: 'Client not found.', data: packet});
-	} else this.send({id: 'onBridgeRejectFail', reason: 'Account not specified.', data: packet});
+		} else this.send({id: 'onBridgeRejectFail', reasonCode: 22, reason: 'Provided account not logged in.', data: packet});
+	} else this.send({id: 'onBridgeRejectFail', reasonCode: 23, reason: 'Account not provided.', data: packet});
 }
 
 Client.prototype.onLobby = function(packet) {
@@ -822,8 +823,8 @@ Client.prototype.onLobby = function(packet) {
 			client.send({id: 'onLobby', lobby: packet.lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: packet.key});
 			this.send({id: 'onOnLobby', account: packet.account});
 			
-		} else this.send({id: 'onOnLobbyFail', reason: 'Account not found.', data: packet});
-	} else this.send({id: 'onOnLobbyFail', reason: 'Account not specified.', data: packet});
+		} else this.send({id: 'onOnLobbyFail', reasonCode: 24, reason: 'Provided account not logged in.', data: packet});
+	} else this.send({id: 'onOnLobbyFail', reasonCode: 25, reason: 'Account not provided.', data: packet});
 };
 
 Client.prototype.rejectLobby = function(packet) {
@@ -834,11 +835,11 @@ Client.prototype.rejectLobby = function(packet) {
 		
 		if (client) {
 			
-			client.send({id: 'onLobbyFail', lobby: packet.data.lobby, host: this.account});
+			client.send({id: 'onLobbyFail', lobby: packet.data.lobby, host: this.account, reasonCode: 26, reason: packet.reason, data: packet.data});
 			this.send({id: 'onRejectLobby', data: packet});
 			
-		} else this.send({id: 'onRejectLobbyFail', reason: 'Account not found.'});
-	} else this.send({id: 'onRejectLobbyFail', reason: 'Account not specified.', data: packet});
+		} else this.send({id: 'onRejectLobbyFail', reasonCode: 27, reason: 'Provided account not logged in.'});
+	} else this.send({id: 'onRejectLobbyFail', reasonCode: 28, reason: 'Account not provided.', data: packet});
 	
 };
 
@@ -857,8 +858,8 @@ Client.prototype.onReserve = function(packet) {
 					clients[i].send({id: 'onReserve', name: packet.name, host: this.account, owner: packet.owner});
 			}
 			
-		} else this.send({id: 'onOnReserveFail', reason: 'Lobby already exists.', data: packet});
-	} else this.send({id: 'onOnReserveFail', reason: 'Lobby not specified.', data: packet});
+		} else this.send({id: 'onOnReserveFail', reasonCode: 29, reason: 'Provided lobby already exists.', data: packet});
+	} else this.send({id: 'onOnReserveFail', reasonCode: 30, reason: 'Lobby not provided.', data: packet});
 	
 }
 
@@ -877,9 +878,9 @@ Client.prototype.unlist = function(packet) {
 				lobby.unlist();
 				this.send({id: 'onUnlist', name: packet.name});
 				
-			} else this.send({id: 'onUnlistFail', reason: 'You are not the host.', data: packet});
-		} else this.send({id: 'onUnlistFail', reason: 'Lobby does not exist.', data: packet});
-	} else this.send({id: 'onUnlistFail', reason: 'Lobby not specified.', data: packet});
+			} else this.send({id: 'onUnlistFail', reasonCode: 31, reason: 'You are not the host of provided lobby.', data: packet});
+		} else this.send({id: 'onUnlistFail', reasonCode: 32, reason: 'Provided lobby does not exist.', data: packet});
+	} else this.send({id: 'onUnlistFail', reasonCode: 33, reason: 'Lobby not provided.', data: packet});
 }
 
 Client.prototype.relist = function(packet) {
@@ -900,10 +901,10 @@ Client.prototype.relist = function(packet) {
 					lobby.unlist();
 					this.send({id: 'onRelist', name: packet.name});
 					
-				} else this.send({id: 'onRelistFail', reason: 'That lobby is already listed.', data: packet});
-			} else this.send({id: 'onRelistFail', reason: 'You are not the host.', data: packet});
-		} else this.send({id: 'onRelistFail', reason: 'Lobby does not exist.', data: packet});
-	} else this.send({id: 'onRelistFail', reason: 'Lobby not specified.', data: packet});
+				} else this.send({id: 'onRelistFail', reasonCode: 34, reason: 'Provided lobby already exists.', data: packet});
+			} else this.send({id: 'onRelistFail', reasonCode: 35, reason: 'You are not the host of provided lobby.', data: packet});
+		} else this.send({id: 'onRelistFail', reasonCode: 36, reason: 'Provided lobby does not exist.', data: packet});
+	} else this.send({id: 'onRelistFail', reasonCode: 37, reason: 'Lobby not provided.', data: packet});
 }
 
 Client.prototype.unreserve = function(packet) {
@@ -921,9 +922,9 @@ Client.prototype.unreserve = function(packet) {
 				//This method does a global announcement, so no need to explicitly respond
 				lobby.unreserve();
 				
-			} else this.send({id: 'onUnreserveFail', reason: 'You are not the host.', data: packet});
-		} else this.send({id: 'onUnreserveFail', reason: 'Lobby does not exist.', data: packet});
-	} else this.send({id: 'onUnreserveFail', reason: 'Lobby not specified.', data: packet});
+			} else this.send({id: 'onUnreserveFail', reasonCode: 38, reason: 'You are not the host of provided lobby.', data: packet});
+		} else this.send({id: 'onUnreserveFail', reasonCode: 39, reason: 'Provided lobby does not exist.', data: packet});
+	} else this.send({id: 'onUnreserveFail', reasonCode: 40, reason: 'Lobby not provided.', data: packet});
 };
 
 Client.prototype.update = function(packet) {
@@ -962,9 +963,9 @@ Client.prototype.update = function(packet) {
 				for (var i = 0; i < clients.length; i++)
 					clients[i].send(onUpdateData);
 				
-			} else this.send({id: 'onUpdateFail', reason: 'You are not the host.', data: packet});
-		} else this.send({id: 'onUpdateFail', reason: 'Lobby does not exist.', data: packet});
-	} else this.send({id: 'onUpdateFail', reason: 'Lobby not specified.', data: packet});
+			} else this.send({id: 'onUpdateFail', reasonCode: 41, reason: 'You are not the host of provided lobby.', data: packet});
+		} else this.send({id: 'onUpdateFail', reasonCode: 42, reason: 'Provided lobby does not exist.', data: packet});
+	} else this.send({id: 'onUpdateFail', reasonCode: 43, reason: 'Lobby not provided.', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -979,7 +980,7 @@ Client.prototype.js = function(data) {
 		} catch (err) {
 			this.send(err, true);
 		}
-	} else this.send({id:'onJSFail', reason:'Access denied.'});
+	} else this.send({id:'onJSFail', reasonCode: 44, reason: 'JavaScript mode not enabled.'});
 }
 
 //////////////////////////////////////////////
@@ -1045,7 +1046,7 @@ Client.prototype._setGroup = function(group) {
 	} else {
 		if (group.clients.length == 0) group.destroy();
 		
-		this.send({id: 'onJoinFail', reason: 'You cannot join.'});
+		this.send({id: 'onJoinFail', reasonCode: 45, reason: 'Unable to join provided group.'});
 	}
 }
 

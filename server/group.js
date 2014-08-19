@@ -192,7 +192,6 @@ Group.prototype.send = function(data, account) {
 	}
 	
 	//Log it
-	this.log("Broadcasting", data);
 	//this.history.push([Date.now(), this, account, 's', data]);
 }
 

@@ -11,7 +11,7 @@ function Lobby(name, host) {
 	this.name = name;
 	this.host = host;
 	this.clients = [];
-	this.lastListed = new Date();
+	this.lastListed = Date.now();
 	this.listed = this.lastListed;
 	
 	this.update = setInterval(this.updateTick.bind(this), 900000);
@@ -21,7 +21,7 @@ function Lobby(name, host) {
 Lobby.prototype.relist = function() {
 	
 	//Only update the time if it's been 15 minutes
-	var d = new Date();
+	var d = Date.now();
 	if (d - this.listed >= 900000) this.listed = d;
 	else this.listed = this.lastListed;
 	
@@ -41,7 +41,7 @@ Lobby.prototype.unlist = function() {
 Lobby.prototype.updateTick = function() {
 	
 	if (this.listed) {
-		this.listed = new Date();
+		this.listed = Date.now();
 		this.lastListed = this.listed;
 	}
 	
