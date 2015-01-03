@@ -3,6 +3,7 @@
 //***************************************
 
 //Standard libraries
+fs			= require('fs');
 net			= require('net');
 WebSocket	= require('ws');
 mysql		= require('mysql');
@@ -100,6 +101,27 @@ lobbies = [];
 //**	Server
 //***************************************
 
+//Load out CA chain first...
+
+ca = [];
+chain = fs.readFileSync('ca-bundle.pem', 'utf8');
+chain = chain.split('\n');
+cert = [];
+
+var line;
+for (var i = 0; i < chain.length; i++) {
+	line = chain[i];
+	
+	if (!(line.length !== 0)) continue;
+	
+	cert.push(line);
+	
+	if (line.match(/-END CERTIFICATE-/)) {
+		ca.push(cert.join('\n'));
+		cert = [];
+	}
+}
+
 //Our overall server global variable
 server = {
 	
@@ -146,7 +168,11 @@ server = {
 	},
 	
 	//Websocket server
-	wss: new WebSocket.Server({port: 8082}),
+	wss: new WebSocket.Server({server: require('https').createServer({
+		key: fs.readFileSync('server.key'),
+		cert: fs.readFileSync('server.crt'),
+		ca: ca
+	}).listen(8082)}),
 	
 	//On Websocket connection
 	onWS: function(socket) {
@@ -184,7 +210,7 @@ server = {
 		//Bind a connection event and our socket
 		this.wss.on('connection', this.onWS.bind(this));
 		
-		//Make our TCP server listen to port 8081
+		//Make our TCP server listen to port 8083
 		this.tcps.listen(8083);
 		
 		this.log('Server started');
