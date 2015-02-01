@@ -104,7 +104,7 @@ lobbies = [];
 //Load out CA chain first...
 
 ca = [];
-chain = fs.readFileSync('ca-bundle.pem', 'utf8');
+chain = fs.readFileSync('ssl/ca-bundle.pem', 'utf8');
 chain = chain.split('\n');
 cert = [];
 
@@ -169,8 +169,8 @@ server = {
 	
 	//Websocket server
 	wss: new WebSocket.Server({server: require('https').createServer({
-		key: fs.readFileSync('server.key'),
-		cert: fs.readFileSync('server.crt'),
+		key: fs.readFileSync('ssl/server.key'),
+		cert: fs.readFileSync('ssl/server.crt'),
 		ca: ca
 	}).listen(8082)}),
 	
