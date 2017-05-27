@@ -9,5 +9,9 @@ const config = require( "./config" );
 const server = new Server( config );
 db( config );
 
-const myRepl = repl.start( "> " );
-myRepl.context.server = server;
+setTimeout( () => {
+
+	const myRepl = repl.start( "> " );
+	myRepl.context.server = server;
+
+}, 250 );

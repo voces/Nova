@@ -46,7 +46,7 @@ class Client {
 			this.socket.on( "close", () => this.close() );
 
 			//Attach error event
-			this.socket.on( "error", this.error.bind( this ) );
+			this.socket.on( "error", data => this.error( data ) );
 
 			//Output to console the new connection...
 			this.log( "Connected" );
@@ -72,7 +72,7 @@ class Client {
 
 		} catch ( err ) {
 
-			return this.send( { id: "invalid", level: 0, origin: this.account, host: this.host, data } );
+			return this.send( { id: "invalid", level: 0, account: this.account, host: this.host, data } );
 
 		}
 
@@ -85,7 +85,7 @@ class Client {
 
 				case "login": return this.login( packet );
 				case "register": return this.register( packet );
-				default: return this.send( { id: "invalid", level: 1, origin: this.account, host: this.host, data: packet } );
+				default: return this.send( { id: "invalid", level: 1, account: this.account, host: this.host, data: packet } );
 
 			}
 
@@ -799,7 +799,7 @@ class Client {
 
 	log( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bblue, this.account || this.address(), ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bblue, this.account || this.address(), ...args, UTIL.colors.default );
 
 	}
 
