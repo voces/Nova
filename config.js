@@ -5,7 +5,7 @@ module.exports = {
 		cert: "../ssl/cert.pem",
 		ca: "../ssl/ca.pem"
 	},
-	port: 8088,
+	port: 8080,
 	db: {
 		host: "localhost",
 		user: "webcraft",

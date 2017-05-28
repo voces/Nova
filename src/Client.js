@@ -16,6 +16,8 @@ const clients = [];
 const groups = Group.instances;
 const lobbies = Lobby.instances;
 
+console.log( lobbies );
+
 class Client {
 
 	constructor( socket ) {
@@ -162,11 +164,11 @@ class Client {
 		if ( this.group ) this.group.removeClient( this );
 
 		// Unreserve any lobbies client was host of
-		for ( let i = 0; i < this.lobbies.length; i ++ ) {
+		for ( let i = 0; i < lobbies.length; i ++ ) {
 
-			if ( this.lobbies[ i ].host === this ) {
+			if ( lobbies[ i ].host === this ) {
 
-				this.lobbies[ i ].unreserve();
+				lobbies[ i ].unreserve();
 				i --;
 
 			}

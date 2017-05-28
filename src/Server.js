@@ -17,8 +17,8 @@ class Server {
 		this.config = config;
 
 		this.loadKeys()
-			.catch( err => console.error( err ) )
-            .then( keys => this.start( keys ) );
+			.then( keys => this.start( keys ) )
+			.catch( err => console.error( err ) );
 
 	}
 
@@ -30,7 +30,7 @@ class Server {
 				readKey( this.config.keys.cert ),
 				readKey( this.config.keys.ca ).then( file => {
 
-    	        	const lines = file.split( "\n" ),
+    	        	const lines = file.toString().split( "\n" ),
     	        		ca = [];
 
     	        	for ( let i = 0, n = 0; i < lines.length; i ++ )
