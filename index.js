@@ -11,7 +11,8 @@ db( config );
 
 setTimeout( () => {
 
-	const myRepl = repl.start( "> " );
+	const myRepl = repl.start( "" );
 	myRepl.context.server = server;
+	myRepl.on( "exit", () => process.exit() );
 
 }, 250 );

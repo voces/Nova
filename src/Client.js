@@ -16,8 +16,6 @@ const clients = [];
 const groups = Group.instances;
 const lobbies = Lobby.instances;
 
-console.log( lobbies );
-
 class Client {
 
 	constructor( socket ) {
@@ -36,6 +34,9 @@ class Client {
 
 			//Set local value
 			this.socket = socket;
+
+			this.remoteAddress = socket._socket.remoteAddress;
+			this.remotePort = socket._socket.remotePort;
 
 			//Store the socket type without us having to do instanceof's
 			if ( socket instanceof WebSocket ) this.type = "ws";
@@ -129,6 +130,7 @@ class Client {
 
 				switch ( packet.id ) {
 
+					case "onBridge": return this.onBridge( packet );
 					case "onLobby": return this.onLobby( packet );
 					case "rejectLobby": return this.rejectLobby( packet );
 					case "bridgeReject": return this.bridgeReject( packet );
@@ -507,7 +509,7 @@ class Client {
 		if ( ! host || ! host.host )
 			return this.send( { id: "onBridgeFail", reasonCode: 17, reason: "Provided account not logged in.", data: packet } );
 
-		host.send( { id: "bridge", originalAccount: this.originalAccount, account: this.account, ip: this.getIP() } );
+		host.send( { id: "bridge", originalAccount: this.originalAccount, account: this.account, ip: this.getIp() } );
 
 	}
 
@@ -545,12 +547,12 @@ class Client {
 		if ( typeof packet.account !== "string" )
 			return this.send( { id: "onOnBridgeFail", reasonCode: 20, reason: "Account not provided", data: packet } );
 
-		const client = clients[ packet.host.toLowerCase() ];
+		const client = clients[ packet.account.toLowerCase() ];
 
 		if ( ! client )
 			return this.send( { id: "onOnBridgeFail", reasonCode: 19, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onBridge", ip: this.getIP(), port: this.hostport, key: packet.key, account: this.account } );
+		client.send( { id: "onBridge", ip: this.getIp(), port: this.hostPort, key: packet.key, account: this.account } );
 		this.send( { id: "onOnBridge", account: packet.account } );
 
 	}
@@ -560,12 +562,12 @@ class Client {
 		if ( typeof packet.account !== "string" )
 			return this.send( { id: "onBridgeRejectFail", reasonCode: 23, reason: "Account not provided.", data: packet } );
 
-		const client = clients[ packet.host.toLowerCase() ];
+		const client = clients[ packet.account.toLowerCase() ];
 
 		if ( ! client )
 			return this.send( { id: "onBridgeRejectFail", reasonCode: 22, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onBridgeFail", ip: this.getIP(), port: this.hostport, reasonCode: 21, reason: packet.reason } );
+		client.send( { id: "onBridgeFail", ip: this.getIp(), port: this.hostPort, reasonCode: 21, reason: packet.reason } );
 		this.send( { id: "onOnBridgeReject", account: packet.account } );
 
 	}
@@ -575,12 +577,12 @@ class Client {
 		if ( typeof packet.account !== "string" )
 			return this.send( { id: "onOnLobbyFail", reasonCode: 25, reason: "Account not provided.", data: packet } );
 
-		const client = clients[ packet.host.toLowerCase() ];
+		const client = clients[ packet.account.toLowerCase() ];
 
 		if ( ! client )
 			return this.send( { id: "onOnLobbyFail", reasonCode: 24, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onLobby", lobby: packet.lobby, host: this.account, ip: this.getIP(), port: this.hostport, key: packet.key } );
+		client.send( { id: "onLobby", lobby: packet.lobby, host: this.account, ip: this.getIp(), port: this.hostPort, key: packet.key } );
 		this.send( { id: "onOnLobby", account: packet.account } );
 
 	}
@@ -743,8 +745,8 @@ class Client {
 	address( arr ) {
 
 		const address = this.type === "ws" ?
-			[ this.socket._socket.remoteAddress, this.socket._socket.remotePort ] :
-			[ this.socket.remoteAddress, this.socket.remotePort ];
+			[ this.remoteAddress, this.remotePort ] :
+			[ this.remoteAddress, this.remotePort ];
 
 		//Return value
 		if ( arr === true ) return address;
@@ -754,9 +756,9 @@ class Client {
 
 	getIp() {
 
-		const addr = this.address( true )[ 0 ];
+		const addr = this.address( true );
 
-		if ( addr.indexOf( "192.168" >= 0 ) ) return "70.173.152.171";
+		if ( addr[ 0 ].indexOf( "192.168" >= 0 ) ) return "notextures.io";
 		else return addr;
 
 		return false;
