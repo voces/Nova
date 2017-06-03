@@ -79,7 +79,7 @@ class Client {
 
 		}
 
-		this.log( UTIL.colors.bmagenta, packet );
+		this.log( "[RECV]" + UTIL.colors.bmagenta, packet );
 
 		//Packets come in as two categories (online and offline)
 		if ( ! this.account ) {
@@ -135,6 +135,7 @@ class Client {
 					case "rejectLobby": return this.rejectLobby( packet );
 					case "bridgeReject": return this.bridgeReject( packet );
 					case "onReserve": return this.onReserve( packet );
+					case "onReserveReject": return this.onReserveReject( packet );
 					case "unlist": return this.unlist( packet );
 					case "relist": return this.relist( packet );
 					case "unreserve": return this.unreserve( packet );
@@ -466,7 +467,7 @@ class Client {
 
 		{
 
-			const index = this.friends.findIndex( friend => friend.account.toLowercase() === packet.account.toLowercase() );
+			const index = this.friends.findIndex( friend => friend.account.toLowerCase() === packet.account.toLowerCase() );
 			if ( index >= 0 ) this.friends.splice( index, 1 );
 
 		}
@@ -489,6 +490,9 @@ class Client {
 
 		if ( typeof packet.host !== "string" )
 			return this.send( { id: "onReserveFail", reasonCode: 16, reason: "Account not provided.", data: packet } );
+
+		if ( typeof packet.name !== "string" )
+			return this.send( { id: "onReserveFail", reasonCode: 65, reason: "Lobby name not provided.", data: packet } );
 
 		const host = clients[ packet.host.toLowerCase() ];
 
@@ -607,7 +611,7 @@ class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onRejectLobbyFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
 
-		if ( lobbies[ packet.name.toLowercase() ] )
+		if ( lobbies[ packet.name.toLowerCase() ] )
 			return this.send( { id: "onOnReserveFail", reasonCode: 29, reason: "Provided lobby already exists.", data: packet } );
 
 		new Lobby( packet.name, this );
@@ -617,6 +621,26 @@ class Client {
 				clients[ i ].send( { id: "onOnReserve", name: packet.name, host: this.account, owner: packet.owner } );
 			else
 				clients[ i ].send( { id: "onReserve", name: packet.name, host: this.account, owner: packet.owner } );
+
+	}
+
+	onReserveReject( packet ) {
+
+		if ( typeof packet.owner !== "string" )
+			return this.send( { id: "onReserveRejectFail", reasonCode: 66, reason: "Owner not provided.", data: packet } );
+
+		if ( typeof packet.lobby !== "string" )
+			return this.send( { id: "onReserveRejectFail", reasonCode: 67, reason: "Lobby not provided.", data: packet } );
+
+		const owner = clients[ packet.owner.toLowerCase() ];
+
+		if ( ! owner )
+			return this.send( { id: "onOnLobbyFail", reasonCode: 68, reason: "Provided owner not logged in.", data: packet } );
+
+		if ( owner !== this )
+			owner.send( { id: "onReserveReject", lobby: packet.lobby, host: this.owner, reason: packet.reason } );
+
+		this.send( { id: "onOnReserveReject", lobby: packet.lobby, owner: packet.owner } );
 
 	}
 
@@ -820,7 +844,7 @@ class Client {
 
 			if ( s.length > 5000 ) return;
 
-			this.log( UTIL.colors.green, data );
+			this.log( "[SEND]" + UTIL.colors.green, data );
 
 			//Send via websocket
 			if ( this.type === "ws" ) this.socket.send( s );
