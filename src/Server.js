@@ -1,22 +1,25 @@
 
-const https = require( "https" );
-const path = require( "path" );
+import http from "http";
+import https from "https";
+import path from "path";
 
-const dateformat = require( "dateformat" );
-const ws = require( "ws" );
+import dateformat from "dateformat";
+import ws from "ws";
 
-const Client = require( "./Client.js" );
-const UTIL = require( "./util.js" );
+import Client from "./Client.js";
+import UTIL from "./util.js";
 
 const readKey = async filepath => ( await UTIL.readFile( path.join( __dirname, filepath ) ) ).toString();
 
-class Server {
+export default class Server {
 
 	constructor( config ) {
 
 		this.config = config;
 
-		this.loadKeys()
+		const promise = this.config.keys ? this.loadKeys() : Promise.resolve();
+
+		promise
 			.then( keys => this.start( keys ) )
 			.catch( err => console.error( err ) );
 
@@ -41,7 +44,20 @@ class Server {
 
     			} )
 
-			] );
+			] ).catch( err => err );
+
+		if ( typeof keys === "object" && keys instanceof Error ) {
+
+			switch ( keys.code ) {
+
+				case "ENOENT": this.error( `File for SSL not found at '${keys.path}'` ); break;
+				default: this.error( keys );
+
+			}
+
+			process.exit( 1 );
+
+		}
 
 		return {
 			key: keys[ 0 ],
@@ -53,7 +69,7 @@ class Server {
 
 	start( keys ) {
 
-		this.https = https.createServer( keys, ( req, res ) => {
+		this.server = ( keys ? https : http ).createServer( keys, ( req, res ) => {
 
 			res.writeHead( "200" );
 			res.end( "Hello World!" );
@@ -61,14 +77,14 @@ class Server {
 		} ).listen( this.config.port, () => {
 
 			//Websocket server
-			this.wss = new ws.Server( { server: this.https } );
+			this.wss = new ws.Server( { server: this.server } );
 			this.wss.on( "connection", socket => new Client( socket ) );
 
 			this.log( "WSS listening on", this.config.port );
 
 		} );
 
-		this.https.on( "error", err => {
+		this.server.on( "error", err => {
 
 			if ( err.code === "EADDRINUSE" ) {
 
@@ -101,5 +117,3 @@ class Server {
 	}
 
 }
-
-module.exports = Server;

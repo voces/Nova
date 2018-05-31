@@ -1,8 +1,8 @@
 
-const mysql = require( "mysql2" );
-const dateformat = require( "dateformat" );
+import mysql from "mysql2";
+import dateformat from "dateformat";
 
-const UTIL = require( "./util" );
+import UTIL from "./util";
 
 let db, config;
 
@@ -33,4 +33,4 @@ function connect( newConfig ) {
 
 }
 
-module.exports = connect;
+export default connect;

@@ -1,11 +1,11 @@
 
-const dateformat = require( "dateformat" );
+import dateformat from "dateformat";
 
-const UTIL = require( "./util" );
+import UTIL from "./util";
 
 const groups = [];
 
-class Group {
+export default class Group {
 
 	constructor( name ) {
 
@@ -146,6 +146,3 @@ class Group {
 }
 
 Group.instances = groups;
-
-//Expose Group class
-module.exports = Group;

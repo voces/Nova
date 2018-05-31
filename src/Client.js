@@ -1,13 +1,13 @@
 
-const util = require( "util" );
-const bcrypt = require( "bcryptjs" );
-const dateformat = require( "dateformat" );
-const WebSocket = require( "ws" );
+import bcrypt from "bcryptjs";
+import dateformat from "dateformat";
+import util from "util";
+import WebSocket from "ws";
 
-const Lobby = require( "./Lobby" );
-const Group = require( "./Group" );
-const db = require( "./db" );
-const UTIL = require( "./util" );
+import db from "./db";
+import Group from "./Group";
+import Lobby from "./Lobby";
+import UTIL from "./util";
 
 const bcryptCompare = UTIL.promisify( bcrypt.compare );
 const bcryptHash = UTIL.promisify( bcrypt.hash );
@@ -16,7 +16,7 @@ const clients = [];
 const groups = Group.instances;
 const lobbies = Lobby.instances;
 
-class Client {
+export default class Client {
 
 	constructor( socket ) {
 
@@ -859,6 +859,3 @@ class Client {
 }
 
 Client.instances = clients;
-
-//Expose Client class
-module.exports = Client;

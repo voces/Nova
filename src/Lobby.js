@@ -1,7 +1,7 @@
 
 const lobbies = [];
 
-class Lobby {
+export default class Lobby {
 
 	constructor( name, host ) {
 
@@ -58,6 +58,3 @@ class Lobby {
 }
 
 Lobby.instances = lobbies;
-
-//Expose Lobby class
-module.exports = Lobby;

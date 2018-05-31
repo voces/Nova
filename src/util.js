@@ -3,11 +3,11 @@
 //	Constructor + property set/gets
 //////////////////////////////////////////////
 
-const fs = require( "fs" );
+import fs from "fs";
 
 //UTIL class
 
-class UTIL {
+export default class UTIL {
 
 	static matchAny( a, b ) {
 
@@ -84,6 +84,3 @@ UTIL.colors = {
 	bwhite: "\x1b[1;37m",
 	default: "\x1b[0;0m"
 };
-
-//Expose UTIL class
-module.exports = UTIL;
