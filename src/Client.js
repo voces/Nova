@@ -4,17 +4,14 @@ import dateformat from "dateformat";
 import util from "util";
 import WebSocket from "ws";
 
-import db from "./db";
-import Group from "./Group";
-import Lobby from "./Lobby";
-import UTIL from "./util";
-
-const bcryptCompare = UTIL.promisify( bcrypt.compare );
-const bcryptHash = UTIL.promisify( bcrypt.hash );
+import db from "./db.js";
+import Group from "./Group.js";
+import Room from "./Room.js";
+import { colors, instance } from "./util.js";
 
 const clients = [];
 const groups = Group.instances;
-const lobbies = Lobby.instances;
+const rooms = Room.instances;
 
 export default class Client {
 
@@ -79,7 +76,7 @@ export default class Client {
 
 		}
 
-		this.log( "[RECV]" + UTIL.colors.bmagenta, packet );
+		this.log( "[RECV]" + colors.bmagenta, packet );
 
 		//Packets come in as two categories (online and offline)
 		if ( ! this.account ) {
@@ -120,7 +117,7 @@ export default class Client {
 			//Hosts
 			case "reserve": return this.reserve( packet );
 			case "bridge": return this.bridge( packet );
-			case "lobbyList": return this.lobbyList();
+			case "roomList": return this.roomList( packet );
 			case "hostList": return this.hostList();
 			case "upgrade": return this.upgrade( packet );
 
@@ -131,8 +128,8 @@ export default class Client {
 				switch ( packet.id ) {
 
 					case "onBridge": return this.onBridge( packet );
-					case "onLobby": return this.onLobby( packet );
-					case "rejectLobby": return this.rejectLobby( packet );
+					case "onRoom": return this.onRoom( packet );
+					case "rejectRoom": return this.rejectRoom( packet );
 					case "bridgeReject": return this.bridgeReject( packet );
 					case "onReserve": return this.onReserve( packet );
 					case "onReserveReject": return this.onReserveReject( packet );
@@ -166,12 +163,12 @@ export default class Client {
 
 		if ( this.group ) this.group.removeClient( this );
 
-		// Unreserve any lobbies client was host of
-		for ( let i = 0; i < lobbies.length; i ++ ) {
+		// Unreserve any rooms client was host of
+		for ( let i = 0; i < rooms.length; i ++ ) {
 
-			if ( lobbies[ i ].host === this ) {
+			if ( rooms[ i ].host === this ) {
 
-				lobbies[ i ].unreserve();
+				rooms[ i ].unreserve();
 				i --;
 
 			}
@@ -200,7 +197,7 @@ export default class Client {
 
 		if ( ! user ) return this.send( { id: "onLoginFail", reasonCode: 1, reason: "Provided account does not exist.", data: packet } );
 
-		if ( packet.account.toLowerCase() !== "anon" && ! await bcryptCompare( packet.password, user.password ) )
+		if ( packet.account.toLowerCase() !== "anon" && ! await bcrypt.compare( packet.password, user.password ) )
 			return this.send( { id: "onLoginFail", reasonCode: 0, reason: "Provided password is incorrect.", data: packet } );
 
 		this.originalAccount = packet.account;
@@ -267,7 +264,7 @@ export default class Client {
 		if ( ( await db.query( "SELECT * FROM users WHERE name = ?;", packet.account ) )[ 0 ] )
 			return this.send( { id: "onRegisterFail", reasonCode: 3, reason: "Provided account already exists.", data: packet } );
 
-		await db.query( "INSERT INTO users ( name, password ) VALUES ( ?, ? );", [ packet.account, await bcryptHash( packet.password, 10 ) ] );
+		await db.query( "INSERT INTO users ( name, password ) VALUES ( ?, ? );", [ packet.account, await bcrypt.hash( packet.password, 10 ) ] );
 
 		this.send( { id: "onRegister", account: packet.account } );
 
@@ -284,7 +281,7 @@ export default class Client {
 
 		const target = clients[ packet.account.toLowerCase() ];
 
-		if ( ! UTIL.instance( target, Client ) )
+		if ( ! instance( target, Client ) )
 			return this.send( { id: "onWhisperFail", reasonCode: 6, reason: "Provided account is not logged in.", data: packet } );
 
 		this.send( { id: "onWhisperEcho", account: target.account, message: packet.message } );
@@ -492,7 +489,7 @@ export default class Client {
 			return this.send( { id: "onReserveFail", reasonCode: 16, reason: "Account not provided.", data: packet } );
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onReserveFail", reasonCode: 65, reason: "Lobby name not provided.", data: packet } );
+			return this.send( { id: "onReserveFail", reasonCode: 65, reason: "Room name not provided.", data: packet } );
 
 		const host = clients[ packet.host.toLowerCase() ];
 
@@ -517,16 +514,18 @@ export default class Client {
 
 	}
 
-	lobbyList() {
+	roomList( packet ) {
 
-		this.send( { id: "onLobbyList", list: lobbies.filter( lobby => lobby.listed ).map( lobby => ( {
-			name: lobby.name,
-			listed: lobby.listed,
-			host: lobby.host.account,
-			protocol: lobby.protocol,
-			date: lobby.date,
-			version: lobby.version,
-			preview: lobby.preview
+		console.log( packet, rooms );
+
+		this.send( { id: "onRoomList", list: rooms.filter( room => room.listed ).map( room => ( {
+			name: room.name,
+			listed: room.listed,
+			host: room.host.account,
+			protocol: room.protocol,
+			date: room.date,
+			version: room.version,
+			preview: room.preview
 
 		} ) ).sort( ( a, b ) => a.listed - b.listed ) } );
 
@@ -542,6 +541,7 @@ export default class Client {
 
 		this.host = true;
 		this.hostPort = packet.port;
+		this.scheme = packet.scheme || "ws";
 		this.send( { id: "onUpgrade" } );
 
 	}
@@ -556,7 +556,7 @@ export default class Client {
 		if ( ! client )
 			return this.send( { id: "onOnBridgeFail", reasonCode: 19, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onBridge", ip: this.getIp(), port: this.hostPort, key: packet.key, account: this.account } );
+		client.send( { id: "onBridge", scheme: this.scheme, ip: this.getIp(), port: this.hostPort, key: packet.key, account: this.account } );
 		this.send( { id: "onOnBridge", account: packet.account } );
 
 	}
@@ -571,50 +571,50 @@ export default class Client {
 		if ( ! client )
 			return this.send( { id: "onBridgeRejectFail", reasonCode: 22, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onBridgeFail", ip: this.getIp(), port: this.hostPort, reasonCode: 21, reason: packet.reason } );
+		client.send( { id: "onBridgeFail", reasonCode: 21, reason: packet.reason } );
 		this.send( { id: "onOnBridgeReject", account: packet.account } );
 
 	}
 
-	onLobby( packet ) {
+	onRoom( packet ) {
 
 		if ( typeof packet.account !== "string" )
-			return this.send( { id: "onOnLobbyFail", reasonCode: 25, reason: "Account not provided.", data: packet } );
+			return this.send( { id: "ononRoomFail", reasonCode: 25, reason: "Account not provided.", data: packet } );
 
 		const client = clients[ packet.account.toLowerCase() ];
 
 		if ( ! client )
-			return this.send( { id: "onOnLobbyFail", reasonCode: 24, reason: "Provided account not logged in.", data: packet } );
+			return this.send( { id: "ononRoomFail", reasonCode: 24, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onLobby", lobby: packet.lobby, host: this.account, ip: this.getIp(), port: this.hostPort, key: packet.key } );
-		this.send( { id: "onOnLobby", account: packet.account } );
+		client.send( { id: "onRoom", room: packet.room, scheme: this.scheme, host: this.account, ip: this.getIp(), port: this.hostPort, key: packet.key } );
+		this.send( { id: "ononRoom", account: packet.account } );
 
 	}
 
-	rejectLobby( packet ) {
+	rejectRoom( packet ) {
 
 		if ( typeof packet.account !== "string" )
-			return this.send( { id: "onRejectLobbyFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
+			return this.send( { id: "onRejectRoomFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
 
 		const client = clients[ packet.host.toLowerCase() ];
 
 		if ( ! client )
-			return this.send( { id: "onRejectLobbyFail", reasonCode: 27, reason: "Provided account not logged in.", data: packet } );
+			return this.send( { id: "onRejectRoomFail", reasonCode: 27, reason: "Provided account not logged in.", data: packet } );
 
-		client.send( { id: "onLobbyFail", lobby: packet.data.lobby, host: this.account, reasonCode: 26, reason: packet.reason, data: packet.data } );
-		this.send( { id: "onRejectLobby", data: packet } );
+		client.send( { id: "onRoomFail", room: packet.data.room, host: this.account, reasonCode: 26, reason: packet.reason, data: packet.data } );
+		this.send( { id: "onRejectRoom", data: packet } );
 
 	}
 
 	onReserve( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onRejectLobbyFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
+			return this.send( { id: "onRejectRoomFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
 
-		if ( lobbies[ packet.name.toLowerCase() ] )
-			return this.send( { id: "onOnReserveFail", reasonCode: 29, reason: "Provided lobby already exists.", data: packet } );
+		if ( rooms[ packet.name.toLowerCase() ] )
+			return this.send( { id: "onOnReserveFail", reasonCode: 29, reason: "Provided room already exists.", data: packet } );
 
-		new Lobby( packet.name, this );
+		new Room( packet.name, this );
 
 		for ( let i = 0; i < clients.length; i ++ )
 			if ( clients[ i ] === this )
@@ -629,35 +629,35 @@ export default class Client {
 		if ( typeof packet.owner !== "string" )
 			return this.send( { id: "onReserveRejectFail", reasonCode: 66, reason: "Owner not provided.", data: packet } );
 
-		if ( typeof packet.lobby !== "string" )
-			return this.send( { id: "onReserveRejectFail", reasonCode: 67, reason: "Lobby not provided.", data: packet } );
+		if ( typeof packet.room !== "string" )
+			return this.send( { id: "onReserveRejectFail", reasonCode: 67, reason: "Room not provided.", data: packet } );
 
 		const owner = clients[ packet.owner.toLowerCase() ];
 
 		if ( ! owner )
-			return this.send( { id: "onOnLobbyFail", reasonCode: 68, reason: "Provided owner not logged in.", data: packet } );
+			return this.send( { id: "ononRoomFail", reasonCode: 68, reason: "Provided owner not logged in.", data: packet } );
 
 		if ( owner !== this )
-			owner.send( { id: "onReserveReject", lobby: packet.lobby, host: this.owner, reason: packet.reason } );
+			owner.send( { id: "onReserveReject", room: packet.room, host: this.owner, reason: packet.reason } );
 
-		this.send( { id: "onOnReserveReject", lobby: packet.lobby, owner: packet.owner } );
+		this.send( { id: "onOnReserveReject", room: packet.room, owner: packet.owner } );
 
 	}
 
 	unlist( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onUnlistFail", reasonCode: 33, reason: "Lobby not provided.", data: packet } );
+			return this.send( { id: "onUnlistFail", reasonCode: 33, reason: "Room not provided.", data: packet } );
 
-		const lobby = lobbies[ packet.name.toLowerCase() ];
+		const room = rooms[ packet.name.toLowerCase() ];
 
-		if ( ! lobby )
-			return this.send( { id: "onUnlistFail", reasonCode: 32, reason: "Provided lobby does not exist.", data: packet } );
+		if ( ! room )
+			return this.send( { id: "onUnlistFail", reasonCode: 32, reason: "Provided room does not exist.", data: packet } );
 
-		if ( lobby.host !== this )
-			return this.send( { id: "onUnlistFail", reasonCode: 31, reason: "You are not the host of provided lobby.", data: packet } );
+		if ( room.host !== this )
+			return this.send( { id: "onUnlistFail", reasonCode: 31, reason: "You are not the host of provided room.", data: packet } );
 
-		lobby.unlist();
+		room.unlist();
 		this.send( { id: "onUnlist", name: packet.name } );
 
 	}
@@ -665,20 +665,20 @@ export default class Client {
 	relist( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onRelistFail", reasonCode: 37, reason: "Lobby not provided.", data: packet } );
+			return this.send( { id: "onRelistFail", reasonCode: 37, reason: "Room not provided.", data: packet } );
 
-		const lobby = lobbies[ packet.name.toLowerCase() ];
+		const room = rooms[ packet.name.toLowerCase() ];
 
-		if ( ! lobby )
-			return this.send( { id: "onRelistFail", reasonCode: 36, reason: "Provided lobby does not exist.", data: packet } );
+		if ( ! room )
+			return this.send( { id: "onRelistFail", reasonCode: 36, reason: "Provided room does not exist.", data: packet } );
 
-		if ( lobby.host !== this )
-			return this.send( { id: "onRelistFail", reasonCode: 35, reason: "You are not the host of provided lobby.", data: packet } );
+		if ( room.host !== this )
+			return this.send( { id: "onRelistFail", reasonCode: 35, reason: "You are not the host of provided room.", data: packet } );
 
-		if ( lobby.listed )
-			return this.send( { id: "onRelistFail", reasonCode: 34, reason: "Provided lobby is already listed.", data: packet } );
+		if ( room.listed )
+			return this.send( { id: "onRelistFail", reasonCode: 34, reason: "Provided room is already listed.", data: packet } );
 
-		lobby.unlist();
+		room.unlist();
 		this.send( { id: "onRelist", name: packet.name } );
 
 	}
@@ -686,55 +686,55 @@ export default class Client {
 	unreserve( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onUnreserveFail", reasonCode: 40, reason: "Lobby not provided.", data: packet } );
+			return this.send( { id: "onUnreserveFail", reasonCode: 40, reason: "Room not provided.", data: packet } );
 
-		const lobby = lobbies[ packet.name.toLowerCase() ];
+		const room = rooms[ packet.name.toLowerCase() ];
 
-		if ( ! lobby )
-			return this.send( { id: "onUnreserveFail", reasonCode: 39, reason: "Provided lobby does not exist.", data: packet } );
+		if ( ! room )
+			return this.send( { id: "onUnreserveFail", reasonCode: 39, reason: "Provided room does not exist.", data: packet } );
 
-		if ( lobby.host !== this )
-			return this.send( { id: "onUnreserveFail", reasonCode: 38, reason: "You are not the host of provided lobby.", data: packet } );
+		if ( room.host !== this )
+			return this.send( { id: "onUnreserveFail", reasonCode: 38, reason: "You are not the host of provided room.", data: packet } );
 
 		for ( let i = 0; i < clients.length; i ++ )
-			clients[ i ].send( { id: "onUnreserve", name: lobby.name, host: this.account } );
+			clients[ i ].send( { id: "onUnreserve", name: room.name, host: this.account } );
 
-		lobby.unreserve();
+		room.unreserve();
 
 	}
 
 	update( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onUpdateFail", reasonCode: 43, reason: "Lobby not provided.", data: packet } );
+			return this.send( { id: "onUpdateFail", reasonCode: 43, reason: "Room not provided.", data: packet } );
 
-		const lobby = lobbies[ packet.name.toLowerCase() ];
+		const room = rooms[ packet.name.toLowerCase() ];
 
-		if ( ! lobby )
-			return this.send( { id: "onUpdateFail", reasonCode: 42, reason: "Provided lobby does not exist.", data: packet } );
+		if ( ! room )
+			return this.send( { id: "onUpdateFail", reasonCode: 42, reason: "Provided room does not exist.", data: packet } );
 
-		if ( lobby.host !== this )
-			return this.send( { id: "onUpdateFail", reasonCode: 41, reason: "You are not the host of provided lobby.", data: packet } );
+		if ( room.host !== this )
+			return this.send( { id: "onUpdateFail", reasonCode: 41, reason: "You are not the host of provided room.", data: packet } );
 
 		if ( typeof packet.protocol != "undefined" )
-			lobby.protocol = packet.protocol;
+			room.protocol = packet.protocol;
 
 		if ( typeof packet.date != "undefined" )
-			lobby.date = packet.date;
+			room.date = packet.date;
 
 		if ( typeof packet.version != "undefined" )
-			lobby.version = packet.version;
+			room.version = packet.version;
 
 		if ( typeof packet.preview != "undefined" )
-			lobby.preview = packet.preview;
+			room.preview = packet.preview;
 
 		const onUpdateData = {
 			id: "onUpdate",
 			name: packet.name,
-			protocol: lobby.protocol,
-			date: lobby.date,
-			version: lobby.version,
-			preview: lobby.preview
+			protocol: room.protocol,
+			date: room.date,
+			version: room.version,
+			preview: room.preview
 		};
 
 		for ( let i = 0; i < clients.length; i ++ )
@@ -821,13 +821,13 @@ export default class Client {
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.blue, this.account || this.address(), ...args, UTIL.colors.default );
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.blue, this.account || this.address(), ...args, colors.default );
 
 	}
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bblue, this.account || this.address(), ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bblue, this.account || this.address(), ...args, colors.default );
 
 	}
 
@@ -844,7 +844,7 @@ export default class Client {
 
 			if ( s.length > 5000 ) return;
 
-			this.log( "[SEND]" + UTIL.colors.green, data );
+			this.log( "[SEND]" + colors.green, data );
 
 			//Send via websocket
 			if ( this.type === "ws" ) this.socket.send( s );

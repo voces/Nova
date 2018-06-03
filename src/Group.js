@@ -1,7 +1,7 @@
 
 import dateformat from "dateformat";
 
-import UTIL from "./util";
+import { colors } from "./util.js";
 
 const groups = [];
 
@@ -139,7 +139,7 @@ export default class Group {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bred, this.name, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bred, this.name, ...args, colors.default );
 
 	}
 

@@ -7,9 +7,9 @@ import dateformat from "dateformat";
 import ws from "ws";
 
 import Client from "./Client.js";
-import UTIL from "./util.js";
+import { colors, readFile } from "./util.js";
 
-const readKey = async filepath => ( await UTIL.readFile( path.join( __dirname, filepath ) ) ).toString();
+const readKey = async filepath => ( await readFile( path.join( __dirname, filepath ) ) ).toString();
 
 export default class Server {
 
@@ -28,21 +28,21 @@ export default class Server {
 	async loadKeys() {
 
 		const keys = await Promise.all(
-        	[
+			[
 				readKey( this.config.keys.key ),
 				readKey( this.config.keys.cert ),
 				readKey( this.config.keys.ca ).then( file => {
 
-    	        	const lines = file.toString().split( "\n" ),
-    	        		ca = [];
+					const lines = file.toString().split( "\n" ),
+						ca = [];
 
-    	        	for ( let i = 0, n = 0; i < lines.length; i ++ )
-    	        		if ( lines[ i ].match( /END CERTIFICATE/ ) )
-    	        			ca.push( lines.slice( n, i + 1 ).join( "\n" ) ), n = i + 1;
+					for ( let i = 0, n = 0; i < lines.length; i ++ )
+						if ( lines[ i ].match( /END CERTIFICATE/ ) )
+							ca.push( lines.slice( n, i + 1 ).join( "\n" ) ), n = i + 1;
 
-    	        	return Promise.resolve( ca );
+					return Promise.resolve( ca );
 
-    			} )
+				} )
 
 			] ).catch( err => err );
 
@@ -106,13 +106,13 @@ export default class Server {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.cyan, ...args, UTIL.colors.default );
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.cyan, ...args, colors.default );
 
 	}
 

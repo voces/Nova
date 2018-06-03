@@ -1,13 +1,13 @@
 
-const lobbies = [];
+const rooms = [];
 
-export default class Lobby {
+export default class Room {
 
 	constructor( name, host ) {
 
 		//Add to global array
-		lobbies.push( this );
-		lobbies[ name.toLowerCase() ] = this;
+		rooms.push( this );
+		rooms[ name.toLowerCase() ] = this;
 
 		this.name = name;
 		this.host = host;
@@ -50,11 +50,11 @@ export default class Lobby {
 
 	unreserve() {
 
-		lobbies.splice( lobbies.indexOf( this ), 1 );
-		delete lobbies[ this.name.toLowerCase() ];
+		rooms.splice( rooms.indexOf( this ), 1 );
+		delete rooms[ this.name.toLowerCase() ];
 
 	}
 
 }
 
-Lobby.instances = lobbies;
+Room.instances = rooms;

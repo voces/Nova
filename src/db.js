@@ -2,12 +2,12 @@
 import mysql from "mysql2";
 import dateformat from "dateformat";
 
-import UTIL from "./util";
+import { colors } from "./util.js";
 
 let db, config;
 
-const log = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
-const error = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.cyan, ...args, UTIL.colors.default );
+const log = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
+const error = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.cyan, ...args, colors.default );
 
 function connect( newConfig ) {
 
