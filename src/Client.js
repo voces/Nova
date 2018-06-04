@@ -522,7 +522,7 @@ export default class Client {
 			name: room.name,
 			listed: room.listed,
 			host: room.host.account,
-			protocol: room.protocol,
+			app: room.app,
 			date: room.date,
 			version: room.version,
 			preview: room.preview
@@ -716,8 +716,8 @@ export default class Client {
 		if ( room.host !== this )
 			return this.send( { id: "onUpdateFail", reasonCode: 41, reason: "You are not the host of provided room.", data: packet } );
 
-		if ( typeof packet.protocol != "undefined" )
-			room.protocol = packet.protocol;
+		if ( typeof packet.app != "undefined" )
+			room.app = packet.app;
 
 		if ( typeof packet.date != "undefined" )
 			room.date = packet.date;
@@ -731,7 +731,7 @@ export default class Client {
 		const onUpdateData = {
 			id: "onUpdate",
 			name: packet.name,
-			protocol: room.protocol,
+			app: room.app,
 			date: room.date,
 			version: room.version,
 			preview: room.preview
