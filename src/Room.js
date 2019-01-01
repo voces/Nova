@@ -1,19 +1,22 @@
 
-const rooms = [];
+import Collection from "./Collection.js";
+
+const rooms = new Collection();
+rooms.key = "lowerName";
 
 export default class Room {
 
 	constructor( name, host ) {
 
-		//Add to global array
-		rooms.push( this );
-		rooms[ name.toLowerCase() ] = this;
-
 		this.name = name;
+		this.lowerName = this.name.toLowerCase();
 		this.host = host;
 		this.clients = [];
 		this.lastListed = Date.now();
 		this.listed = this.lastListed;
+
+		//Add to global array
+		rooms.add( this );
 
 		this.update = setInterval( this.updateTick.bind( this ), 900000 );
 
@@ -50,8 +53,7 @@ export default class Room {
 
 	unreserve() {
 
-		rooms.splice( rooms.indexOf( this ), 1 );
-		delete rooms[ this.name.toLowerCase() ];
+		rooms.remove( this );
 
 	}
 

@@ -611,7 +611,7 @@ export default class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onRejectRoomFail", reasonCode: 28, reason: "Account not provided.", data: packet } );
 
-		if ( rooms[ packet.name.toLowerCase() ] )
+		if ( rooms.dict[ packet.name.toLowerCase() ] )
 			return this.send( { id: "onOnReserveFail", reasonCode: 29, reason: "Provided room already exists.", data: packet } );
 
 		new Room( packet.name, this );
@@ -649,7 +649,7 @@ export default class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onUnlistFail", reasonCode: 33, reason: "Room not provided.", data: packet } );
 
-		const room = rooms[ packet.name.toLowerCase() ];
+		const room = rooms.dict[ packet.name.toLowerCase() ];
 
 		if ( ! room )
 			return this.send( { id: "onUnlistFail", reasonCode: 32, reason: "Provided room does not exist.", data: packet } );
@@ -667,7 +667,7 @@ export default class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onRelistFail", reasonCode: 37, reason: "Room not provided.", data: packet } );
 
-		const room = rooms[ packet.name.toLowerCase() ];
+		const room = rooms.dict[ packet.name.toLowerCase() ];
 
 		if ( ! room )
 			return this.send( { id: "onRelistFail", reasonCode: 36, reason: "Provided room does not exist.", data: packet } );
@@ -688,7 +688,7 @@ export default class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onUnreserveFail", reasonCode: 40, reason: "Room not provided.", data: packet } );
 
-		const room = rooms[ packet.name.toLowerCase() ];
+		const room = rooms.dict[ packet.name.toLowerCase() ];
 
 		if ( ! room )
 			return this.send( { id: "onUnreserveFail", reasonCode: 39, reason: "Provided room does not exist.", data: packet } );
@@ -708,7 +708,7 @@ export default class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onUpdateFail", reasonCode: 43, reason: "Room not provided.", data: packet } );
 
-		const room = rooms[ packet.name.toLowerCase() ];
+		const room = rooms.dict[ packet.name.toLowerCase() ];
 
 		if ( ! room )
 			return this.send( { id: "onUpdateFail", reasonCode: 42, reason: "Provided room does not exist.", data: packet } );
