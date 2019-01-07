@@ -79,7 +79,7 @@ export default class Client {
 		this.log( "[RECV]" + colors.bmagenta, packet );
 
 		//Packets come in as two categories (online and offline)
-		if ( ! this.account ) {
+		if ( ! this.account )
 
 			switch ( packet.id ) {
 
@@ -88,8 +88,6 @@ export default class Client {
 				default: return this.send( { id: "invalid", level: 1, account: this.account, host: this.host, data: packet } );
 
 			}
-
-		}
 
 		switch ( packet.id ) {
 
@@ -154,7 +152,7 @@ export default class Client {
 		//Tell friends they've logged off
 		for ( let i = 0; i < this.friends.length; i ++ ) {
 
-			let key = this.friends[ i ].account.toLowerCase();
+			const key = this.friends[ i ].account.toLowerCase();
 
 			if ( this.friends[ i ].mutual && key in clients )
 				clients[ key ].send( { id: "onWhisper", account: this.account, message: "Your friend " + this.account + " has logged off." } );
@@ -164,7 +162,7 @@ export default class Client {
 		if ( this.group ) this.group.removeClient( this );
 
 		// Unreserve any rooms client was host of
-		for ( let i = 0; i < rooms.length; i ++ ) {
+		for ( let i = 0; i < rooms.length; i ++ )
 
 			if ( rooms[ i ].host === this ) {
 
@@ -172,8 +170,6 @@ export default class Client {
 				i --;
 
 			}
-
-		}
 
 		clients.splice( clients.indexOf( this ), 1 );
 
@@ -228,7 +224,7 @@ export default class Client {
 		//Tell friends they've logged off
 		for ( let i = 0; i < this.friends.length; i ++ ) {
 
-			let key = this.friends[ i ].account.toLowerCase();
+			const key = this.friends[ i ].account.toLowerCase();
 
 			if ( this.friends[ i ].mutual && key in clients )
 				clients[ key ].send( { id: "onWhisper", account: this.account, message: "Your friend " + this.account + " has logged off." } );
@@ -327,10 +323,10 @@ export default class Client {
 	noGroup( data ) {
 
 		if ( typeof this.group !== "object" )
-			return this.send( { id: "onNoGroupFail", reasonCode: 10, reason: "You are not in a group.", data: data } );
+			return this.send( { id: "onNoGroupFail", reasonCode: 10, reason: "You are not in a group.", data } );
 
 		this.group.removeClient( this );
-		this.send( { id: "onNoGroup", data: data } );
+		this.send( { id: "onNoGroup", data } );
 		this.group = null;
 
 	}
@@ -358,7 +354,7 @@ export default class Client {
 		this.friends = ( await db.query( query, [ this.id, this.id ] ) ).map( friend =>
 			( { account: friend.name, avatar: friend.avatar || "", mutual: !! friend.mutual } ) );
 
-		for ( const i = 0; i < this.friends.length; i ++ ) {
+		for ( let i = 0; i < this.friends.length; i ++ ) {
 
 			if ( ! this.friends[ i ].mutual ) continue;
 
@@ -398,7 +394,7 @@ export default class Client {
 
 		}
 
-		this.send( { id: "onFriendList", list: friends, data: data } );
+		this.send( { id: "onFriendList", list: friends, data } );
 
 	}
 
@@ -514,9 +510,8 @@ export default class Client {
 
 	}
 
-	roomList( packet ) {
-
-		console.log( packet, rooms );
+	// Should add filter function
+	roomList() {
 
 		this.send( { id: "onRoomList", list: rooms.filter( room => room.listed ).map( room => ( {
 			name: room.name,
@@ -716,16 +711,16 @@ export default class Client {
 		if ( room.host !== this )
 			return this.send( { id: "onUpdateFail", reasonCode: 41, reason: "You are not the host of provided room.", data: packet } );
 
-		if ( typeof packet.app != "undefined" )
+		if ( typeof packet.app !== "undefined" )
 			room.app = packet.app;
 
-		if ( typeof packet.date != "undefined" )
+		if ( typeof packet.date !== "undefined" )
 			room.date = packet.date;
 
-		if ( typeof packet.version != "undefined" )
+		if ( typeof packet.version !== "undefined" )
 			room.version = packet.version;
 
-		if ( typeof packet.preview != "undefined" )
+		if ( typeof packet.preview !== "undefined" )
 			room.preview = packet.preview;
 
 		const onUpdateData = {
@@ -785,8 +780,6 @@ export default class Client {
 		if ( addr[ 0 ].indexOf( "192.168" >= 0 ) ) return "notextures.io";
 		else return addr;
 
-		return false;
-
 	}
 
 	setGroup( group ) {
@@ -797,7 +790,8 @@ export default class Client {
 		if ( group.canJoin( this ) ) {
 
 			//Remove them from any present group
-			if ( this.group != null ) this.group.removeClient( this );
+			// TODO: This should only be null or undefined - pick one
+			if ( this.group !== null && this.group !== undefined ) this.group.removeClient( this );
 
 			//Set local group variable
 			this.group = group;
@@ -852,7 +846,7 @@ export default class Client {
 			//Send via socket
 			else if ( this.type === "s" ) this.socket.write( s );
 
-		} catch ( e ) {}
+		} catch ( e ) { /* do nothing */ }
 
 	}
 

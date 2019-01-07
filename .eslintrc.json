@@ -1,25 +1,22 @@
 {
-  "extends": "mdcs",
-  "parserOptions": {
-      "ecmaVersion": 8
-  },
-  "rules": {
-	"comma-dangle": [
-	  "error",
-	  "never"
-	],
-	"quotes": [
-	  "error",
-	  "double"
-	],
-	"no-multiple-empty-lines": [
-	  "error",
-	  {
-		"max": 1
-	  }
-	],
-	"strict": [
-	  "error"
-	]
-  }
+	"extends": [ "eslint:recommended", "mdcs" ],
+	"parserOptions": { "ecmaVersion": 2018 },
+	"rules": {
+		"comma-dangle": [ "error", "never" ],
+		"quotes": [ "error", "double" ],
+		"no-multiple-empty-lines": [ "error", { "max": 1 } ],
+		"strict": [ "error" ],
+		"prefer-arrow-callback": [ "error" ],
+		"arrow-parens": [ "error", "as-needed" ],
+		"arrow-body-style": [ "error", "as-needed" ],
+		"no-var": [ "error" ],
+		"no-unused-vars": [ "warn", { "ignoreRestSiblings": true } ],
+		"curly": [ "error", "multi" ],
+		"object-shorthand": [ "error" ],
+		"eqeqeq": [ "error" ],
+		"prefer-const": [ "warn" ],
+		"no-console": 0,
+		"no-constant-condition": 0
+	}
 }
+
